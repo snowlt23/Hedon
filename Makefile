@@ -5,3 +5,6 @@ hedon: hedon.c
 
 test: hedon
 	./test.sh
+
+clean:
+	rm hedon

@@ -1,6 +1,6 @@
 #!/bin/sh
 
-runtest() {
+basetest() {
   OUT=$(echo "$1" | ./hedon)
   echo "[TEST] $1"
   if [ "$OUT" != "$2" ] ; then
@@ -9,8 +9,35 @@ runtest() {
   fi
 }
 
-runtest "555" "555"
-runtest "4 5 +" "9"
-runtest "6 5 -" "1"
-runtest "0 1 -" "-1"
-runtest ": add5 5 + ; 4 add5" "9"
+runtest() {
+  OUT=$(echo "$(cat prelude.hedon) $1" | ./hedon)
+  echo "[TEST] $1"
+  if [ "$OUT" != "$2" ] ; then
+    echo "[ERROR] $1    expect $2, but got $OUT"
+    exit 1
+  fi
+}
+
+errortest() {
+  ERR=$(echo "$(cat prelude.hedon) $1" | ./hedon 2>&1)
+  echo "[TEST] $1"
+  if [ "$ERR" != "$2" ] ; then
+    echo "[ERROR] $1    expect \"$2\" error, but got \"$ERR\""
+    exit 1
+  fi
+}
+
+basetest "555" "555"
+basetest "4 5 +" "9"
+basetest "6 5 -" "1"
+basetest "0 1 -" "-1"
+basetest ": add5 5 + ; 4 add5" "9"
+basetest ": drop X 0x48 X 0x83 X 0xc3 X 0x08 ; 4 5 drop" "4"
+basetest ": add5 5 + ; dump-type add5 0" "Int -- Int0"
+basetest ": add5 5 + ; : x9 4 add5 ; x9" "9"
+
+runtest "4 5 drop" "4"
+runtest "555 . cr 0" "555
+0"
+errortest "drop" "stack is empty, but expected Int value"
+errortest ": add5 5 + ; 5 ( drop )" "stack is empty, but expected Type value"
