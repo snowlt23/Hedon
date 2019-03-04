@@ -15,7 +15,7 @@
   #define jit_memfree(p, size) munmap(p, size)
 #endif
 
-#define error(...) {fprintf(stderr, __VA_ARGS__); exit(1);}
+#define error(...) {fprintf(stderr, __VA_ARGS__); fprintf(stderr, " in %s", last_def(globaldefs)->name); exit(1);}
 
 #define WORDSIZE 8
 
@@ -40,7 +40,7 @@ typedef struct {
   bool immediate;
 } Def;
 typedef struct {
-  Def* data;
+  Def** data;
   size_t cap;
   size_t count;
 } Defs;
@@ -59,6 +59,7 @@ LabelStack g_after;
 size_t labelid;
 Label* labell;
 Label* intl;
+Label* ptrl;
 
 //
 // prototypes
@@ -118,29 +119,29 @@ WordLabel init_wordlabel(LabelStack b, LabelStack a) {
 
 Defs init_defs(size_t cap) {
   Defs defs;
-  defs.data = malloc(sizeof(Def) * cap);
+  defs.data = malloc(sizeof(Def*) * cap);
   defs.cap = cap;
   defs.count = 0;
   return defs;
 }
 
-void add_def(Defs* defs, Def def) {
+void add_def(Defs* defs, Def* def) {
   if (defs->cap < defs->count) {
     while (defs->cap >= defs->count) defs->cap *= 2;
-    defs->data = realloc(defs->data, sizeof(Def)*defs->cap);
+    defs->data = realloc(defs->data, sizeof(Def*)*defs->cap);
   }
   defs->data[defs->count++] = def;
 }
 
-Def search_def(Defs* defs, char* name) {
+Def* search_def(Defs* defs, char* name) {
   for (int i=0; i<defs->count; i++) {
-    if (strcmp(defs->data[i].name, name) == 0) return defs->data[i];
+    if (strcmp(defs->data[i]->name, name) == 0) return defs->data[i];
   }
-  return (Def){"\0"};
+  return NULL;
 }
 
 Def* last_def(Defs defs) {
-  return &defs.data[defs.count - 1];
+  return defs.data[defs.count - 1];
 }
 
 //
@@ -200,6 +201,17 @@ void write_call_builtin(void* p) {
 
 void write_stack_increment(int inc) {
   write_hex(0x48, 0x81, 0xc3); write_lendian(inc, 4); // add rbx, inc
+}
+
+void write_x(size_t x) {
+  write_hex(0x48, 0x83, 0xeb, 0x08); // sub rbx, 8
+  write_hex(0x48, 0xb8); write_qword(x); // movabs rax, x
+  write_hex(0x48, 0x89, 0x03); // mov [rbx], rax
+}
+
+void write_call_word(size_t wp) {
+  write_hex(0x48, 0xb8); write_qword(wp); // movabs rax, wp
+  write_hex(0xff, 0xd0); // call rax
 }
 
 //
@@ -295,10 +307,11 @@ void word_int() {
 
 void word_def() {
   parse_token(); // parse name
-  Def def;
-  strcpy(def.name, token);
-  def.wp = cp;
-  def.immediate = false;
+  Def* def = malloc(sizeof(Def));
+  add_def(&globaldefs, def);
+  strcpy(def->name, token);
+  def->wp = cp;
+  def->immediate = false;
   // save global labelstack
   LabelStack tmpb = g_before;
   LabelStack tmpa = g_after;
@@ -315,11 +328,28 @@ void word_def() {
   }
   write_hex(0xc3); // ret
   state = false;
-  def.wl = init_wordlabel(g_before, g_after);
-  add_def(&globaldefs, def);
+  def->wl = init_wordlabel(g_before, g_after);
   // restore global labelstack
   g_before = tmpb;
   g_after = tmpa;
+}
+
+void word_labelid() {
+  global_push_label(intl);
+  write_x(labelid++);
+}
+
+void word_genlabel() {
+  size_t id = pop_x();
+  char* name = (char*)pop_x();
+  push_x((size_t)init_label(name, id));
+}
+
+void word_label_imm() {
+  global_push_label(labell);
+  char* name = last_def(globaldefs)->name;
+  size_t id = labelid++;
+  write_x((size_t)init_label(name, id));
 }
 
 void word_immediate() {
@@ -357,15 +387,15 @@ void word_wordlabel() {
 
 void word_dump_label() {
   parse_token();
-  Def def = search_def(&globaldefs, token);
-  if (def.name[0] == '\0') error("undefined %s word in dump-label.", token);
-  for (int i=0; i<def.wl.before.count; i++) {
-    Label* l = def.wl.before.data[i];
+  Def* def = search_def(&globaldefs, token);
+  if (def == NULL) error("undefined %s word in dump-label.", token);
+  for (int i=0; i<def->wl.before.count; i++) {
+    Label* l = def->wl.before.data[i];
     printf("%s ", l->name);
   }
   printf("--");
-  for (int i=0; i<def.wl.after.count; i++) {
-    Label* l = def.wl.after.data[i];
+  for (int i=0; i<def->wl.after.count; i++) {
+    Label* l = def->wl.after.data[i];
     printf(" %s", l->name);
   }
 }
@@ -390,17 +420,16 @@ void word_sub() {
 }
 
 void eval_token() {
-  Def def = search_def(&globaldefs, token);
-  if (def.name[0] != '\0') {
-    apply_before(def.wl.before);
-    apply_after(def.wl.after);
-    if (def.immediate) {
-      call_word(def.wp);
+  Def* def = search_def(&globaldefs, token);
+  if (def != NULL) {
+    apply_before(def->wl.before);
+    apply_after(def->wl.after);
+    if (def->immediate) {
+      call_word(def->wp);
     } else if (state) {
-      write_hex(0x48, 0xb8); write_qword((size_t)def.wp); // movabs rax, wp
-      write_hex(0xff, 0xd0); // call rax
+      write_call_word((size_t)def->wp);
     } else {
-      call_word(def.wp);
+      call_word(def->wp);
     }
     return;
   }
@@ -409,9 +438,7 @@ void eval_token() {
   if (x != 0 || token[0] == '0') {
     global_push_label(intl);
     if (state) {
-      write_hex(0x48, 0x83, 0xeb, 0x08); // sub rbx, 8
-      write_hex(0x48, 0xb8); write_qword(x); // movabs rax, x
-      write_hex(0x48, 0x89, 0x03); // mov [rbx], rax
+      write_x(x);
     } else {
       push_x(x);
     }
@@ -424,7 +451,9 @@ void eval_token() {
 
   // builtin for def
   BUILTIN_WORD(":", word_def, 0, {});
-  BUILTIN_WORD("label", word_label, 0, {});
+  BUILTIN_IMM_WORD("labelid", word_label_imm);
+  BUILTIN_WORD("genlabel", word_genlabel, 0, {BLABEL(ptrl, intl); ALABEL(labell)});
+  BUILTIN_IMM_WORD("label", word_label_imm);
   BUILTIN_WORD("immediate", word_immediate, 0, {});
   BUILTIN_IMM_WORD("(", word_wordlabel);
   BUILTIN_IMM_WORD("X", word_X);
@@ -457,6 +486,7 @@ void startup(size_t cpsize, size_t dpsize) {
   labelid = 0;
   labell = generate_label("Label");
   intl = generate_label("Int");
+  ptrl = generate_label("Ptr");
 }
 
 int main() {

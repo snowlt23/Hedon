@@ -1,0 +1,3 @@
+: MyInt label ;
+: mi ; ( -- MyInt )
+mi mi + 0

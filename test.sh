@@ -18,8 +18,26 @@ runtest() {
   fi
 }
 
+filetest() {
+  OUT=$(echo "$(cat prelude.hedon) $(cat $1)" | ./hedon)
+  echo "[TEST] $1"
+  if [ "$OUT" != "$2" ] ; then
+    echo "[ERROR] $1    expect $2, but got $OUT"
+    exit 1
+  fi
+}
+
 errortest() {
   ERR=$(echo "$(cat prelude.hedon) $1" | ./hedon 2>&1)
+  echo "[TEST] $1"
+  if [ "$ERR" != "$2" ] ; then
+    echo "[ERROR] $1    expect \"$2\" error, but got \"$ERR\""
+    exit 1
+  fi
+}
+
+error_filetest() {
+  ERR=$(echo "$(cat prelude.hedon) $(cat $1)" | ./hedon 2>&1)
   echo "[TEST] $1"
   if [ "$ERR" != "$2" ] ; then
     echo "[ERROR] $1    expect \"$2\" error, but got \"$ERR\""
@@ -39,5 +57,6 @@ basetest ": add5 5 + ; : x9 4 add5 ; x9" "9"
 runtest "4 5 drop" "4"
 runtest "555 . cr 0" "555
 0"
-errortest "drop" "stack is empty, but expected Int value"
-errortest ": add5 5 + ; 5 ( drop )" "stack is empty, but expected Label value"
+errortest "drop" "stack is empty, but expected Int value in drop"
+errortest ": add5 5 + ; 5 ( drop )" "stack is empty, but expected Label value in add5"
+error_filetest "examples/basic-type.hedon" "unmatch MyInt label to Int in mi"
