@@ -514,7 +514,6 @@ void eval_token() {
   BUILTIN_WORD(".", word_dot, 8, {BLABEL(intl)});
   BUILTIN_WORD("cr", word_cr, 0, {});
   BUILTIN_WORD("dump-label", word_dump_label, 0, {});
-  BUILTIN_WORD("+", word_add, 8, {BLABEL(intl, intl); ALABEL(intl)});
   BUILTIN_WORD("-", word_sub, 8, {BLABEL(intl, intl); ALABEL(intl)});
 
   error("undefined %s word.", token);

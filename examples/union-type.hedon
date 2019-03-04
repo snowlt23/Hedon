@@ -1,8 +1,5 @@
-: Fixnum union ;
-: add >rcx >rax X 0x48 X 0x01 X 0xc8 rax> ; ( Fixnum Fixnum -- Fixnum )
-
 : MyInt label ;
-MyInt Fixnum is
+MyInt Num is
 : mi 9 ; ( -- MyInt )
 
-mi mi add
+mi mi +
