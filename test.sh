@@ -33,11 +33,11 @@ basetest "6 5 -" "1"
 basetest "0 1 -" "-1"
 basetest ": add5 5 + ; 4 add5" "9"
 basetest ": drop X 0x48 X 0x83 X 0xc3 X 0x08 ; 4 5 drop" "4"
-basetest ": add5 5 + ; dump-type add5 0" "Int -- Int0"
+basetest ": add5 5 + ; dump-label add5 0" "Int -- Int0"
 basetest ": add5 5 + ; : x9 4 add5 ; x9" "9"
 
 runtest "4 5 drop" "4"
 runtest "555 . cr 0" "555
 0"
 errortest "drop" "stack is empty, but expected Int value"
-errortest ": add5 5 + ; 5 ( drop )" "stack is empty, but expected Type value"
+errortest ": add5 5 + ; 5 ( drop )" "stack is empty, but expected Label value"
