@@ -1,0 +1,5 @@
+var nine
+nine @ .
+9 nine !
+nine @ .
+0

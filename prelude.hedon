@@ -3,10 +3,27 @@ Int Fixnum is
 : Num union ;
 Int Num is
 
+: cell 8 ;
 : drop X 0x48 X 0x83 X 0xc3 X 0x08 ; ( Fixnum )
 : grow X 0x48 X 0x83 X 0xeb X 0x08 ; ( -- Fixnum )
 : >rax X 0x48 X 0x8b X 0x03 drop ;
+: >rbx X 0x48 X 0x8b X 0x1b drop ;
 : >rcx X 0x48 X 0x8b X 0x0b drop ;
 : rax> grow X 0x48 X 0x89 X 0x03 ;
+: rbx> grow X 0x48 X 0x89 X 0x1b ;
+: rcx> grow X 0x48 X 0x89 X 0x0b ;
+: dup >rax grow rax> ;
+: swap >rax >rcx rax> rcx> ;
+: sp@ rbx> ;
+: sp! >rbx ;
 
 : + >rcx >rax X 0x48 X 0x01 X 0xc8 rax> ; ( Num Num -- Num )
+: @ >rax X 0x48 X 0x8b X 0x00 rax> ;
+: ! >rax >rcx X 0x48 X 0x89 X 0x08 ;
+: pick3 sp@ cell cell + cell + + @ ; ( Fixnum Fixnum Fixnum -- Fixnum Fixnum Fixnum Fixnum )
+: +! dup @ pick3 + swap ! drop ;
+
+: here dp @ ;
+: allot dp +! ;
+: , here ! cell allot ;
+: var create 0 , ;

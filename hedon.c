@@ -49,6 +49,7 @@ typedef struct {
 FILE* fin;
 char token[256];
 uint8_t* cp;
+uint8_t* sp;
 uint8_t* dp;
 bool state;
 
@@ -90,6 +91,12 @@ bool eqlabel(Label* a, Label* b) {
     for (int i=0; i<a->ul.count; i++) {
       Label* l = a->ul.data[i];
       if (eqlabel(l, b)) return true;
+    }
+  }
+  if (b->ul.data != NULL) {
+    for (int i=0; i<b->ul.count; i++) {
+      Label* l = b->ul.data[i];
+      if (eqlabel(a, l)) return true;
     }
   }
   return false;
@@ -202,23 +209,23 @@ void write_qword(size_t x) {
 }
 
 void push_x(size_t x) {
-  dp -= 8;
-  *(size_t*)dp = x;
+  sp -= 8;
+  *(size_t*)sp = x;
 }
 size_t pop_x() {
-  size_t x = *(size_t*)dp;
-  dp += 8;
+  size_t x = *(size_t*)sp;
+  sp += 8;
   return x;
 }
 
 void call_word(uint8_t* wp) {
   uint8_t* rbx;
-  inasm("mov rbx, %1; mov rax, %2; call rax; mov %0, rbx;", "=r"(rbx) : "r"(dp), "r"(wp) : "rbx");
-  dp = rbx;
+  inasm("mov rbx, %1; mov rax, %2; call rax; mov %0, rbx;", "=r"(rbx) : "r"(sp), "r"(wp) : "rbx");
+  sp = rbx;
 }
 
 void write_call_builtin(void* p) {
-  write_hex(0x48, 0xb8); write_qword((size_t)&dp); // movabs rax, &dp;
+  write_hex(0x48, 0xb8); write_qword((size_t)&sp); // movabs rax, &sp;
   write_hex(0x48, 0x89, 0x18); // mov [rax], rbx
   write_hex(0x48, 0xb8); write_qword((size_t)p); // movabs rax, p
   write_hex(0xff, 0xd0); // call rax
@@ -310,7 +317,7 @@ void parse_token() {
     tdecl; \
     if (state) { \
       write_call_builtin(f); \
-      write_stack_increment(stackinc); \
+      write_stack_increment(-(stackinc)); \
     } else { \
       f(); \
     } \
@@ -408,6 +415,19 @@ void word_X() {
   write_hex(x);
 }
 
+void word_create() {
+  parse_token();
+  Def* def = malloc(sizeof(Def));
+  add_def(&globaldefs, def);
+  strcpy(def->name, token);
+  def->wp = cp;
+  def->immediate = false;
+  def->wl = init_wordlabel(init_labelstack(8), init_labelstack(8));
+  push_label(&def->wl.after, intl);
+  write_x((size_t)dp);
+  write_hex(0xc3); // ret
+}
+
 void word_wordlabel() {
   Def* def = last_def(globaldefs);
   def->wl.before.count = 0;
@@ -444,6 +464,10 @@ void word_dump_label() {
     Label* l = def->wl.after.data[i];
     printf(" %s", l->name);
   }
+}
+
+void word_dp() {
+  push_x((size_t)&dp);
 }
 
 void word_dot() {
@@ -492,8 +516,8 @@ void eval_token() {
   }
 
   // builtin labels 
-  BUILTIN_WORD("Label", word_label, -8, {ALABEL(labell)});
-  BUILTIN_WORD("Int", word_int, -8, {ALABEL(labell)});
+  BUILTIN_WORD("Label", word_label, 8, {ALABEL(labell)});
+  BUILTIN_WORD("Int", word_int, 8, {ALABEL(labell)});
 
   // builtin for def
   BUILTIN_WORD(":", word_def, 0, {});
@@ -501,20 +525,22 @@ void eval_token() {
   BUILTIN_WORD("immediate", word_immediate, 0, {});
   BUILTIN_IMM_WORD("(", word_wordlabel);
   BUILTIN_IMM_WORD("X", word_X);
+  BUILTIN_WORD("create", word_create, 8, {ALABEL(intl)});
 
   // builtin for label def
-  BUILTIN_WORD("labelid", word_labelid, -8, {ALABEL(intl)});
-  BUILTIN_WORD("genlabel", word_genlabel, 8, {BLABEL(ptrl, intl); ALABEL(labell)});
+  BUILTIN_WORD("labelid", word_labelid, 8, {ALABEL(intl)});
+  BUILTIN_WORD("genlabel", word_genlabel, -8, {BLABEL(ptrl, intl); ALABEL(labell)});
   BUILTIN_IMM_WORD("label", word_label_imm);
-  BUILTIN_WORD("genunion", word_genunion, 8, {BLABEL(ptrl, intl); ALABEL(labell)});
+  BUILTIN_WORD("genunion", word_genunion, -8, {BLABEL(ptrl, intl); ALABEL(labell)});
   BUILTIN_IMM_WORD("union", word_union_imm);
-  BUILTIN_WORD("is", word_is, 16, {BLABEL(labell, labell)});
+  BUILTIN_WORD("is", word_is, -16, {BLABEL(labell, labell)});
 
   // builtin words
-  BUILTIN_WORD(".", word_dot, 8, {BLABEL(intl)});
+  BUILTIN_WORD("dp", word_dp, 8, {ALABEL(intl)});
+  BUILTIN_WORD(".", word_dot, -8, {BLABEL(intl)});
   BUILTIN_WORD("cr", word_cr, 0, {});
   BUILTIN_WORD("dump-label", word_dump_label, 0, {});
-  BUILTIN_WORD("-", word_sub, 8, {BLABEL(intl, intl); ALABEL(intl)});
+  BUILTIN_WORD("-", word_sub, -8, {BLABEL(intl, intl); ALABEL(intl)});
 
   error("undefined %s word.", token);
 }
@@ -523,10 +549,11 @@ void eval_token() {
 // main
 //
 
-void startup(size_t cpsize, size_t dpsize) {
+void startup(size_t cpsize, size_t spsize, size_t dpsize) {
   fin = stdin;
   cp = (uint8_t*)jit_memalloc(cpsize);
-  dp = (uint8_t*)malloc(dpsize) + dpsize;
+  sp = (uint8_t*)malloc(spsize) + spsize;
+  dp = (uint8_t*)malloc(dpsize);
   state = false;
 
   globaldefs = init_defs(1024);
@@ -541,7 +568,7 @@ void startup(size_t cpsize, size_t dpsize) {
 }
 
 int main() {
-  startup(1024*1024, 1024*10);
+  startup(1024*1024, 1024*10, 1024*10);
 
   for (;;) {
     parse_token();
