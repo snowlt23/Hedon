@@ -57,6 +57,7 @@ basetest ": add5 5 + ; : x9 4 add5 ; x9" "9"
 runtest "4 5 drop" "4"
 runtest "555 . cr 0" "555
 0"
-errortest "drop" "stack is empty, but expected Int value in drop"
+errortest ": main ; drop" "stack is empty, but expected Int value in main"
 errortest ": add5 5 + ; 5 ( drop )" "stack is empty, but expected Label value in add5"
 error_filetest "examples/basic-type.hedon" "unmatch MyInt label to Int in mi"
+filetest "examples/union-type.hedon" "18"

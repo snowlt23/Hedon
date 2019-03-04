@@ -20,14 +20,15 @@
 #define WORDSIZE 8
 
 typedef struct {
-  char* name;
-  size_t id;
-} Label;
-typedef struct {
-  Label** data;
+  struct _Label** data;
   size_t cap;
   size_t count;
 } LabelStack;
+typedef struct _Label {
+  char* name;
+  size_t id;
+  LabelStack ul;
+} Label;
 typedef struct {
   LabelStack before;
   LabelStack after;
@@ -75,6 +76,7 @@ Label* init_label(char* name, size_t id) {
   Label* l = malloc(sizeof(Label));
   l->name = name;
   l->id = id;
+  l->ul.data = NULL;
   return l;
 }
 
@@ -83,7 +85,14 @@ Label* generate_label(char* name) {
 }
 
 bool eqlabel(Label* a, Label* b) {
-  return a->id == b->id;
+  if (a->id == b->id) return true;
+  if (a->ul.data != NULL) {
+    for (int i=0; i<a->ul.count; i++) {
+      Label* l = a->ul.data[i];
+      if (eqlabel(l, b)) return true;
+    }
+  }
+  return false;
 }
 
 LabelStack init_labelstack(size_t cap) {
@@ -95,8 +104,8 @@ LabelStack init_labelstack(size_t cap) {
 }
 
 void push_label(LabelStack* ls, Label* l) {
-  if (ls->cap < ls->count) {
-    while (ls->cap >= ls->count) ls->cap *= 2;
+  if (ls->cap <= ls->count) {
+    while (ls->cap <= ls->count) ls->cap *= 2;
     ls->data = realloc(ls->data, sizeof(Label*)*ls->cap);
   }
   ls->data[ls->count++] = l;
@@ -113,6 +122,22 @@ WordLabel init_wordlabel(LabelStack b, LabelStack a) {
   return wl;
 }
 
+// union
+
+Label* init_union(char* name, size_t id) {
+  Label* l = malloc(sizeof(Label));
+  l->name = name;
+  l->id = id;
+  l->ul = init_labelstack(8);
+  return l;
+}
+
+bool union_add(Label* ul, Label* l) {
+  if (ul->ul.data == NULL) return false;
+  push_label(&ul->ul, l);
+  return true;
+}
+
 //
 // Definitions
 //
@@ -126,8 +151,8 @@ Defs init_defs(size_t cap) {
 }
 
 void add_def(Defs* defs, Def* def) {
-  if (defs->cap < defs->count) {
-    while (defs->cap >= defs->count) defs->cap *= 2;
+  if (defs->cap <= defs->count) {
+    while (defs->cap <= defs->count) defs->cap *= 2;
     defs->data = realloc(defs->data, sizeof(Def*)*defs->cap);
   }
   defs->data[defs->count++] = def;
@@ -210,8 +235,8 @@ void write_x(size_t x) {
 }
 
 void write_call_word(size_t wp) {
-  write_hex(0x48, 0xb8); write_qword(wp); // movabs rax, wp
-  write_hex(0xff, 0xd0); // call rax
+  write_hex(0x49, 0xb8); write_qword(wp); // movabs r8, wp
+  write_hex(0x41, 0xff, 0xd0); // call r8
 }
 
 //
@@ -234,7 +259,7 @@ void global_pop_label(Label* l) {
   }
   // consume current stack label.
   Label* sl = pop_label(&g_after);
-  if (!eqlabel(sl, l)) error("unmatch %s label to %s", sl->name, l->name);
+  if (!eqlabel(l, sl)) error("unmatch %s label to %s", sl->name, l->name);
 }
 
 void apply_before(LabelStack before) {
@@ -345,11 +370,30 @@ void word_genlabel() {
   push_x((size_t)init_label(name, id));
 }
 
+void word_genunion() {
+  size_t id = pop_x();
+  char* name = (char*)pop_x();
+  push_x((size_t)init_union(name, id));
+}
+
 void word_label_imm() {
   global_push_label(labell);
   char* name = last_def(globaldefs)->name;
   size_t id = labelid++;
   write_x((size_t)init_label(name, id));
+}
+
+void word_union_imm() {
+  global_push_label(labell);
+  char* name = last_def(globaldefs)->name;
+  size_t id = labelid++;
+  write_x((size_t)init_union(name, id));
+}
+
+void word_is() {
+  Label* ul = (Label*)pop_x();
+  Label* l = (Label*)pop_x();
+  if (!union_add(ul, l)) error("%s label isn't union", ul->name);
 }
 
 void word_immediate() {
@@ -366,6 +410,8 @@ void word_X() {
 
 void word_wordlabel() {
   Def* def = last_def(globaldefs);
+  def->wl.before.count = 0;
+  def->wl.after.count = 0;
   for (;;) {
     parse_token();
     if (strcmp(token, "--") == 0) break;
@@ -452,11 +498,17 @@ void eval_token() {
   // builtin for def
   BUILTIN_WORD(":", word_def, 0, {});
   BUILTIN_IMM_WORD("labelid", word_label_imm);
-  BUILTIN_WORD("genlabel", word_genlabel, 0, {BLABEL(ptrl, intl); ALABEL(labell)});
-  BUILTIN_IMM_WORD("label", word_label_imm);
   BUILTIN_WORD("immediate", word_immediate, 0, {});
   BUILTIN_IMM_WORD("(", word_wordlabel);
   BUILTIN_IMM_WORD("X", word_X);
+
+  // builtin for label def
+  BUILTIN_WORD("labelid", word_labelid, -8, {ALABEL(intl)});
+  BUILTIN_WORD("genlabel", word_genlabel, 8, {BLABEL(ptrl, intl); ALABEL(labell)});
+  BUILTIN_IMM_WORD("label", word_label_imm);
+  BUILTIN_WORD("genunion", word_genunion, 8, {BLABEL(ptrl, intl); ALABEL(labell)});
+  BUILTIN_IMM_WORD("union", word_union_imm);
+  BUILTIN_WORD("is", word_is, 16, {BLABEL(labell, labell)});
 
   // builtin words
   BUILTIN_WORD(".", word_dot, 8, {BLABEL(intl)});
