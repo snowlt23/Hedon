@@ -15,6 +15,7 @@
   #define jit_memfree(p, size) munmap(p, size)
 #endif
 
+#define ierror(...) {fprintf(stderr, __VA_ARGS__); exit(1);}
 #define error(...) {fprintf(stderr, __VA_ARGS__); fprintf(stderr, " in %s", last_def(globaldefs)->name); exit(1);}
 
 #define WORDSIZE 8
@@ -378,11 +379,11 @@ void word_create() {
   def->wp = cp;
   def->immediate = false;
   def->wl = init_wordlabel(init_labelstack(8), init_labelstack(8));
-  def->codesize = cp;
+  def->codesize = (size_t)cp;
   push_label(&def->wl.after, fixnuml);
   write_x((size_t)dp);
   write_hex(0xc3); // ret
-  def->codesize = cp - def->codesize;
+  def->codesize = (size_t)cp - def->codesize;
 }
 
 void word_does_in() {
@@ -551,8 +552,31 @@ void startup(size_t cpsize, size_t spsize, size_t dpsize) {
   ptrl = generate_label("Ptr");
 }
 
-int main() {
+void eval_file(FILE* f) {
+  FILE* tmpfin = fin;
+  fin = f;
+  for (;;) {
+    parse_token();
+    if (strlen(token) == 0) break;
+    eval_token();
+  }
+  fin = tmpfin;
+}
+
+int main(int argc, char** argv) {
   startup(1024*1024, 1024*10, 1024*10);
+
+  for (int i=1; i<argc; i++) {
+    if (strcmp(argv[i], "-l") == 0) {
+      i++;
+      if (i >= argc) ierror("require filename argument by -l option");
+      eval_file(fopen(argv[i], "r"));
+    } else if (strcmp(argv[i], "-c") == 0) {
+      return 0;
+    } else {
+      ierror("unknown cmdline argument: %s", argv[i]);
+    }
+  }
 
   for (;;) {
     parse_token();
@@ -560,6 +584,5 @@ int main() {
     eval_token();
   }
 
-  printf("%zd", pop_x());
   return 0;
 }

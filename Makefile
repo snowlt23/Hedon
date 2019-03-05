@@ -3,7 +3,7 @@ build: hedon ;
 hedon: hedon.c
 	gcc -o hedon hedon.c
 
-test: hedon
+test: build
 	./test.sh
 
 clean:
