@@ -26,4 +26,4 @@
 : allot dp +! ;
 : , here ! cell allot ;
 : var create 0 , ;
-: const create , does> @ ;
+: const create , does> @ ; ( Fixnum )

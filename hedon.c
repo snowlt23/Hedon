@@ -36,6 +36,7 @@ typedef struct {
 typedef struct {
   char name[256];
   uint8_t* wp;
+  size_t codesize;
   WordLabel wl;
   bool immediate;
 } Def;
@@ -322,6 +323,7 @@ void word_def() {
   g_before = init_labelstack(8);
   g_after = init_labelstack(8);
 
+  size_t p = (size_t)cp;
   state = true;
   for (;;) {
     parse_token();
@@ -332,6 +334,7 @@ void word_def() {
   write_hex(0xc3); // ret
   state = false;
   def->wl = init_wordlabel(g_before, g_after);
+  def->codesize = (size_t)cp - p;
   // restore global labelstack
   g_before = tmpb;
   g_after = tmpa;
@@ -375,21 +378,26 @@ void word_create() {
   def->wp = cp;
   def->immediate = false;
   def->wl = init_wordlabel(init_labelstack(8), init_labelstack(8));
+  def->codesize = cp;
   push_label(&def->wl.after, fixnuml);
   write_x((size_t)dp);
   write_hex(0xc3); // ret
+  def->codesize = cp - def->codesize;
 }
 
 void word_does_in() {
   cp--;
-  for (uint8_t* p = (uint8_t*)pop_x(); *p != 0xc3; p++) {
+  Def* def = (Def*)pop_x();
+  uint8_t* pp = (uint8_t*)pop_x();
+  for (uint8_t* p = pp; p<=def->wp+def->codesize; p++) {
     write_hex((size_t)*p);
   }
-  write_hex(0xc3); // ret
+  last_def(globaldefs)->codesize += -1 + def->wp+def->codesize - pp;
 }
 
 void word_does() {
   size_t* fixup = write_x(0);
+  write_x((size_t)last_def(globaldefs));
   write_call_builtin(word_does_in);
   write_stack_increment(-8);
   write_hex(0xc3); // ret
@@ -422,7 +430,7 @@ void word_wordlabel() {
 void word_dump_label() {
   parse_token();
   Def* def = search_def(&globaldefs, token);
-  if (def == NULL) error("undefined %s word in dump-label.", token);
+  if (def == NULL) error("undefined %s word in dump-label", token);
   for (int i=0; i<def->wl.before.count; i++) {
     Label* l = def->wl.before.data[i];
     printf("%s ", l->name);
@@ -431,6 +439,15 @@ void word_dump_label() {
   for (int i=0; i<def->wl.after.count; i++) {
     Label* l = def->wl.after.data[i];
     printf(" %s", l->name);
+  }
+}
+
+void word_dump_code() {
+  parse_token();
+  Def* def = search_def(&globaldefs, token);
+  if (def == NULL) error("undefined %s word in dump-code", token);
+  for (int i=0; i<def->codesize; i++) {
+    printf("%02x", def->wp[i]);
   }
 }
 
@@ -493,7 +510,7 @@ void eval_token() {
   BUILTIN_WORD("immediate", word_immediate, 0, {});
   BUILTIN_IMM_WORD("(", word_wordlabel);
   BUILTIN_IMM_WORD("X", word_X);
-  BUILTIN_WORD("create", word_create, 8, {ALABEL(fixnuml)});
+  BUILTIN_WORD("create", word_create, 0, {});
   BUILTIN_IMM_WORD("does>", word_does);
 
   // builtin for label def
@@ -506,6 +523,7 @@ void eval_token() {
   BUILTIN_WORD(".", word_dot, -8, {BLABEL(fixnuml)});
   BUILTIN_WORD("cr", word_cr, 0, {});
   BUILTIN_WORD("dump-label", word_dump_label, 0, {});
+  BUILTIN_WORD("dump-code", word_dump_code, 0, {});
   BUILTIN_WORD("-", word_sub, -8, {BLABEL(fixnuml, fixnuml); ALABEL(fixnuml)});
 
   error("undefined %s word.", token);
