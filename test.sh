@@ -53,6 +53,7 @@ runtest "1 2 3 pick3 ." "1"
 runtest "0 dp @ ! 45 dp @ +! dp @ @ ." "45"
 runtest "1 , 2 , 3 , dp @ cell - @ ." "3"
 runtest "9 const nine nine ." "9"
+runtest "4 . 5 . 0 exit 6 ." "45"
 
 errortest ": main ; drop" "stack is empty, but expected Fixnum value in main"
 errortest ": add5 5 + ; 5 ( drop )" "stack is empty, but expected Label value in add5"

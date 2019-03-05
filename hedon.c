@@ -459,6 +459,7 @@ void word_dp() {
 void word_dot() {
   size_t x = pop_x();
   printf("%zd", x);
+  fflush(stdout);
 }
 void word_cr() {
   printf("\n");
