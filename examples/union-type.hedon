@@ -1,5 +1,0 @@
-: MyInt label ;
-MyInt Num is
-: mi 9 ; ( -- MyInt )
-
-mi mi +

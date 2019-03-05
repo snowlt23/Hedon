@@ -1,7 +1,6 @@
-: Fixnum union ;
-Int Fixnum is
-: Num union ;
-Int Num is
+: String label ;
+: Err label ;
+: File label ;
 
 : cell 8 ;
 : drop X 0x48 X 0x83 X 0xc3 X 0x08 ; ( Fixnum )
@@ -17,7 +16,7 @@ Int Num is
 : sp@ rbx> ;
 : sp! >rbx ;
 
-: + >rcx >rax X 0x48 X 0x01 X 0xc8 rax> ; ( Num Num -- Num )
+: + >rcx >rax X 0x48 X 0x01 X 0xc8 rax> ;
 : @ >rax X 0x48 X 0x8b X 0x00 rax> ;
 : ! >rax >rcx X 0x48 X 0x89 X 0x08 ;
 : pick3 sp@ cell cell + cell + + @ ; ( Fixnum Fixnum Fixnum -- Fixnum Fixnum Fixnum Fixnum )
@@ -27,3 +26,4 @@ Int Num is
 : allot dp +! ;
 : , here ! cell allot ;
 : var create 0 , ;
+: const create , does> @ ;

@@ -27,7 +27,6 @@ typedef struct {
 typedef struct _Label {
   char* name;
   size_t id;
-  LabelStack ul;
 } Label;
 typedef struct {
   LabelStack before;
@@ -60,7 +59,7 @@ LabelStack g_before;
 LabelStack g_after;
 size_t labelid;
 Label* labell;
-Label* intl;
+Label* fixnuml;
 Label* ptrl;
 
 //
@@ -77,7 +76,6 @@ Label* init_label(char* name, size_t id) {
   Label* l = malloc(sizeof(Label));
   l->name = name;
   l->id = id;
-  l->ul.data = NULL;
   return l;
 }
 
@@ -86,20 +84,7 @@ Label* generate_label(char* name) {
 }
 
 bool eqlabel(Label* a, Label* b) {
-  if (a->id == b->id) return true;
-  if (a->ul.data != NULL) {
-    for (int i=0; i<a->ul.count; i++) {
-      Label* l = a->ul.data[i];
-      if (eqlabel(l, b)) return true;
-    }
-  }
-  if (b->ul.data != NULL) {
-    for (int i=0; i<b->ul.count; i++) {
-      Label* l = b->ul.data[i];
-      if (eqlabel(a, l)) return true;
-    }
-  }
-  return false;
+  return a->id == b->id;
 }
 
 LabelStack init_labelstack(size_t cap) {
@@ -127,22 +112,6 @@ WordLabel init_wordlabel(LabelStack b, LabelStack a) {
   wl.before = b;
   wl.after = a;
   return wl;
-}
-
-// union
-
-Label* init_union(char* name, size_t id) {
-  Label* l = malloc(sizeof(Label));
-  l->name = name;
-  l->id = id;
-  l->ul = init_labelstack(8);
-  return l;
-}
-
-bool union_add(Label* ul, Label* l) {
-  if (ul->ul.data == NULL) return false;
-  push_label(&ul->ul, l);
-  return true;
 }
 
 //
@@ -232,13 +201,15 @@ void write_call_builtin(void* p) {
 }
 
 void write_stack_increment(int inc) {
-  write_hex(0x48, 0x81, 0xc3); write_lendian(inc, 4); // add rbx, inc
+  write_hex(0x48, 0x81, 0xc3); write_lendian(-inc, 4); // add rbx, inc
 }
 
-void write_x(size_t x) {
+size_t* write_x(size_t x) {
   write_hex(0x48, 0x83, 0xeb, 0x08); // sub rbx, 8
-  write_hex(0x48, 0xb8); write_qword(x); // movabs rax, x
+  write_hex(0x48, 0xb8); // movabs rax, x
+  size_t* fixup = (size_t*)cp; write_qword(x);
   write_hex(0x48, 0x89, 0x03); // mov [rbx], rax
+  return fixup;
 }
 
 void write_call_word(size_t wp) {
@@ -317,7 +288,7 @@ void parse_token() {
     tdecl; \
     if (state) { \
       write_call_builtin(f); \
-      write_stack_increment(-(stackinc)); \
+      write_stack_increment(stackinc); \
     } else { \
       f(); \
     } \
@@ -333,8 +304,8 @@ void word_label() {
   push_x((size_t)labell);
 }
 
-void word_int() {
-  push_x((size_t)intl);
+void word_fixnum() {
+  push_x((size_t)fixnuml);
 }
 
 void word_def() {
@@ -367,7 +338,7 @@ void word_def() {
 }
 
 void word_labelid() {
-  global_push_label(intl);
+  global_push_label(fixnuml);
   write_x(labelid++);
 }
 
@@ -377,30 +348,11 @@ void word_genlabel() {
   push_x((size_t)init_label(name, id));
 }
 
-void word_genunion() {
-  size_t id = pop_x();
-  char* name = (char*)pop_x();
-  push_x((size_t)init_union(name, id));
-}
-
 void word_label_imm() {
   global_push_label(labell);
   char* name = last_def(globaldefs)->name;
   size_t id = labelid++;
   write_x((size_t)init_label(name, id));
-}
-
-void word_union_imm() {
-  global_push_label(labell);
-  char* name = last_def(globaldefs)->name;
-  size_t id = labelid++;
-  write_x((size_t)init_union(name, id));
-}
-
-void word_is() {
-  Label* ul = (Label*)pop_x();
-  Label* l = (Label*)pop_x();
-  if (!union_add(ul, l)) error("%s label isn't union", ul->name);
 }
 
 void word_immediate() {
@@ -423,9 +375,25 @@ void word_create() {
   def->wp = cp;
   def->immediate = false;
   def->wl = init_wordlabel(init_labelstack(8), init_labelstack(8));
-  push_label(&def->wl.after, intl);
+  push_label(&def->wl.after, fixnuml);
   write_x((size_t)dp);
   write_hex(0xc3); // ret
+}
+
+void word_does_in() {
+  cp--;
+  for (uint8_t* p = (uint8_t*)pop_x(); *p != 0xc3; p++) {
+    write_hex((size_t)*p);
+  }
+  write_hex(0xc3); // ret
+}
+
+void word_does() {
+  size_t* fixup = write_x(0);
+  write_call_builtin(word_does_in);
+  write_stack_increment(-8);
+  write_hex(0xc3); // ret
+  *fixup = (size_t)cp;
 }
 
 void word_wordlabel() {
@@ -506,7 +474,7 @@ void eval_token() {
 
   long x = strtol(token, NULL, 0);
   if (x != 0 || token[0] == '0') {
-    global_push_label(intl);
+    global_push_label(fixnuml);
     if (state) {
       write_x(x);
     } else {
@@ -517,7 +485,7 @@ void eval_token() {
 
   // builtin labels 
   BUILTIN_WORD("Label", word_label, 8, {ALABEL(labell)});
-  BUILTIN_WORD("Int", word_int, 8, {ALABEL(labell)});
+  BUILTIN_WORD("Fixnum", word_fixnum, 8, {ALABEL(labell)});
 
   // builtin for def
   BUILTIN_WORD(":", word_def, 0, {});
@@ -525,22 +493,20 @@ void eval_token() {
   BUILTIN_WORD("immediate", word_immediate, 0, {});
   BUILTIN_IMM_WORD("(", word_wordlabel);
   BUILTIN_IMM_WORD("X", word_X);
-  BUILTIN_WORD("create", word_create, 8, {ALABEL(intl)});
+  BUILTIN_WORD("create", word_create, 8, {ALABEL(fixnuml)});
+  BUILTIN_IMM_WORD("does>", word_does);
 
   // builtin for label def
-  BUILTIN_WORD("labelid", word_labelid, 8, {ALABEL(intl)});
-  BUILTIN_WORD("genlabel", word_genlabel, -8, {BLABEL(ptrl, intl); ALABEL(labell)});
+  BUILTIN_WORD("labelid", word_labelid, 8, {ALABEL(fixnuml)});
+  BUILTIN_WORD("genlabel", word_genlabel, -8, {BLABEL(ptrl, fixnuml); ALABEL(labell)});
   BUILTIN_IMM_WORD("label", word_label_imm);
-  BUILTIN_WORD("genunion", word_genunion, -8, {BLABEL(ptrl, intl); ALABEL(labell)});
-  BUILTIN_IMM_WORD("union", word_union_imm);
-  BUILTIN_WORD("is", word_is, -16, {BLABEL(labell, labell)});
 
   // builtin words
-  BUILTIN_WORD("dp", word_dp, 8, {ALABEL(intl)});
-  BUILTIN_WORD(".", word_dot, -8, {BLABEL(intl)});
+  BUILTIN_WORD("dp", word_dp, 8, {ALABEL(fixnuml)});
+  BUILTIN_WORD(".", word_dot, -8, {BLABEL(fixnuml)});
   BUILTIN_WORD("cr", word_cr, 0, {});
   BUILTIN_WORD("dump-label", word_dump_label, 0, {});
-  BUILTIN_WORD("-", word_sub, -8, {BLABEL(intl, intl); ALABEL(intl)});
+  BUILTIN_WORD("-", word_sub, -8, {BLABEL(fixnuml, fixnuml); ALABEL(fixnuml)});
 
   error("undefined %s word.", token);
 }
@@ -563,7 +529,7 @@ void startup(size_t cpsize, size_t spsize, size_t dpsize) {
   g_after = init_labelstack(8);
   labelid = 0;
   labell = generate_label("Label");
-  intl = generate_label("Int");
+  fixnuml = generate_label("Fixnum");
   ptrl = generate_label("Ptr");
 }
 
