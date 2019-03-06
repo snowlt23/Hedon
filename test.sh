@@ -55,6 +55,7 @@ runtest "1 , 2 , 3 , dp @ cell - @ ." "3"
 runtest "9 const nine nine ." "9"
 runtest "4 . 5 . 0 exit 6 ." "45"
 runtest ": main 0 if 4 . then 1 if 5 . then ; main" "5"
+runtest ": main 1 if 4 . else 5 . then 0 if 4 . else 5 . then ; main" "45"
 
 errortest ": main ; drop" "stack is empty, but expected Fixnum value in main"
 errortest ": add5 5 + ; 5 ( drop )" "stack is empty, but expected Label value in add5"

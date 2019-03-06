@@ -59,6 +59,9 @@
   pick2 24 fixup-byte
 ;
 
+: fixup-to-chere
+  dup 4 + cp @ swap - swap fixup-lendian32 drop drop
+;
 : if
   0x48 op 0x8b op 0x03 op
   0x48 op 0x83 op 0xc3 op 0x08 op
@@ -67,8 +70,14 @@
   cp @
   0 op-lendian32
 ; immediate ( -- IfAddr )
+: else
+  0xe9 op
+  cp @
+  0 op-lendian32
+  fixup-to-chere
+; immediate ( IfAddr -- IfAddr )
 : then
-  dup 4 + cp @ swap - swap fixup-lendian32 drop drop
+  fixup-to-chere
 ; immediate ( IfAddr -- )
 
 : exit 60 syscall1 ;
