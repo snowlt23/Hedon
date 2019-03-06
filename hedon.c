@@ -57,6 +57,8 @@ bool state;
 Defs globaldefs;
 Defs localdefs;
 
+LabelStack i_before;
+LabelStack i_after;
 LabelStack g_before;
 LabelStack g_after;
 size_t labelid;
@@ -224,22 +226,28 @@ void write_call_word(size_t wp) {
 //
 
 void global_push_label(Label* l) {
-  push_label(&g_after, l);
+  if (state) push_label(&g_after, l);
+  else push_label(&i_after, l);
 }
 
 void global_pop_label(Label* l) {
-  if (g_after.count == 0 && !state) {
-    // if stack is empty at global state
-    error("stack is empty, but expected %s value", l->name);
+  if (state) {
+    if (g_after.count == 0) {
+      // pop_label for word argument.
+      push_label(&g_before, l);
+      return;
+    }
+    // consume current stack label.
+    Label* sl = pop_label(&g_after);
+    if (!eqlabel(l, sl)) error("unmatch %s label to %s", sl->name, l->name);
+  } else {
+    if (i_after.count == 0) {
+      // if stack is empty at global state
+      error("stack is empty, but expected %s value", l->name);
+    }
+    Label* sl = pop_label(&i_after);
+    if (!eqlabel(l, sl)) error("unmatch %s label to %s", sl->name, l->name);
   }
-  if (g_after.count == 0) {
-    // pop_label for word argument.
-    push_label(&g_before, l);
-    return;
-  }
-  // consume current stack label.
-  Label* sl = pop_label(&g_after);
-  if (!eqlabel(l, sl)) error("unmatch %s label to %s", sl->name, l->name);
 }
 
 void apply_before(LabelStack before) {
@@ -550,6 +558,8 @@ void startup(size_t cpsize, size_t spsize, size_t dpsize) {
   globaldefs = init_defs(1024);
   localdefs = init_defs(1024);
 
+  i_before = init_labelstack(8);
+  i_after = init_labelstack(8);
   g_before = init_labelstack(8);
   g_after = init_labelstack(8);
   labelid = 0;
