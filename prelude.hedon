@@ -50,6 +50,16 @@
   dup 16 shr 0xff band op
   24 shr 0xff band op
 ;
+: op-lendian64
+  dup 0 shr 0xff band op
+  dup 8 shr 0xff band op
+  dup 16 shr 0xff band op
+  dup 24 shr 0xff band op
+  dup 32 shr 0xff band op
+  dup 40 shr 0xff band op
+  dup 48 shr 0xff band op
+  56 shr 0xff band op
+;
 : fixup-byte
   shr 0xff band pick2 c!
   1 +
@@ -102,5 +112,28 @@
   op-from-chere
   fixup-to-chere
 ; immediate ( BeginAddr WhileAddr )
+
+: op-call
+  0x48 op 0x8b op 0x03 op
+  0x48 op 0x83 op 0xc3 op 0x08 op
+  0xff op 0xd0 op
+;
+: op-literal
+  0x48 op 0x83 op 0xeb op 0x08 op
+  0x48 op 0xb8 op
+  op-lendian64
+  0x48 op 0x89 op 0x03 op
+;
+
+: postpone-in
+  op-literal
+  op-call
+;
+
+: postpone
+  parse-token token search-word word-code op-literal
+  s" postpone-in" search-word word-code op-literal
+  op-call
+; immediate
 
 : exit 60 syscall1 ;

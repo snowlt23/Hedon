@@ -1,0 +1,6 @@
+: meta+
+  postpone +
+; immediate
+: main
+  4 5 meta+ .
+; main

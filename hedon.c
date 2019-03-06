@@ -479,6 +479,37 @@ void word_dump_code() {
   }
 }
 
+void word_strlit() {
+  global_push_label(fixnuml);
+  size_t p = (size_t)dp;
+  for (;;) {
+    char c = fgetc(fin);
+    if (c == '"') break;
+    if (c == '\\') c = fgetc(fin);
+    *dp = c;
+    dp++;
+  }
+  write_x(p);
+}
+
+void word_parse_token() {
+  parse_token();
+}
+
+void word_token() {
+  push_x((size_t)token);
+}
+
+void word_search_word() {
+  char* name = (char*)pop_x();
+  push_x((size_t)search_def(&globaldefs, name));
+}
+
+void word_word_code() {
+  Def* def = (Def*)pop_x();
+  push_x((size_t)def->wp);
+}
+
 void word_dp() {
   push_x((size_t)&dp);
 }
@@ -549,6 +580,7 @@ void eval_token() {
   BUILTIN_IMM_WORD("X", word_X);
   BUILTIN_WORD("create", word_create, 0, {});
   BUILTIN_IMM_WORD("does>", word_does);
+  BUILTIN_IMM_WORD("s\"", word_strlit);
 
   // builtin for label def
   BUILTIN_WORD("labelid", word_labelid, 8, {ALABEL(fixnuml)});
@@ -556,6 +588,10 @@ void eval_token() {
   BUILTIN_IMM_WORD("label", word_label_imm);
 
   // builtin words
+  BUILTIN_WORD("parse-token", word_parse_token, 0, {});
+  BUILTIN_WORD("token", word_token, 8, {ALABEL(fixnuml)});
+  BUILTIN_WORD("search-word", word_search_word, 0, {BLABEL(fixnuml); ALABEL(fixnuml)});
+  BUILTIN_WORD("word-code", word_word_code, 0, {BLABEL(fixnuml); ALABEL(fixnuml)});
   BUILTIN_WORD("dp", word_dp, 8, {ALABEL(fixnuml)});
   BUILTIN_WORD("cp", word_cp, 8, {ALABEL(fixnuml)});
   BUILTIN_WORD(".", word_dot, -8, {BLABEL(fixnuml)});
