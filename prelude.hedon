@@ -1,6 +1,7 @@
 : String label ;
 : Err label ;
 : File label ;
+: IfAddr label ;
 
 : cell 8 ;
 : drop X 0x48 X 0x83 X 0xc3 X 0x08 ; ( Fixnum )
@@ -19,8 +20,12 @@
 : sp! >rbx ;
 
 : + >rcx >rax X 0x48 X 0x01 X 0xc8 rax> ;
+: band >rcx >rax X 0x48 X 0x21 X 0xc8 rax> ;
+: shr >rcx >rax X 0x48 X 0xd3 X 0xe8 rax> ;
 : @ >rax X 0x48 X 0x8b X 0x00 rax> ;
 : ! >rax >rcx X 0x48 X 0x89 X 0x08 ;
+: c! >rax >rcx X 0x88 X 0x08 ;
+: pick2 sp@ cell cell + + @ ; ( Fixnum Fixnum Fixnum -- Fixnum Fixnum Fixnum Fixnum )
 : pick3 sp@ cell cell + cell + + @ ; ( Fixnum Fixnum Fixnum -- Fixnum Fixnum Fixnum Fixnum )
 : +! dup @ pick3 + swap ! drop ;
 
@@ -29,9 +34,41 @@
 : , here ! cell allot ;
 : var create 0 , ;
 : const create , does> @ ; ( Fixnum )
+: op cp @ c! 1 cp +! ;
+: ret 0xc3 op ; immediate
 
-: syscall0 >rax X 0x0f X 0x05 ;
-: syscall1 >rax >rdi X 0x0f X 0x05 ;
-: syscall2 >rax >rdi >rsi X 0x0f X 0x05 ;
+: op-syscall 0x0f op 0x05 op ; immediate
+: syscall0 >rax op-syscall ;
+: syscall1 >rax >rdi op-syscall ;
+: syscall2 >rax >rdi >rsi op-syscall ;
+
+: op-lendian32
+  dup 0 shr 0xff band op
+  dup 8 shr 0xff band op
+  dup 16 shr 0xff band op
+  24 shr 0xff band op
+;
+: fixup-byte
+  shr 0xff band pick2 c!
+  1 +
+;
+: fixup-lendian32
+  pick2 0 fixup-byte
+  pick2 8 fixup-byte
+  pick2 16 fixup-byte
+  pick2 24 fixup-byte
+;
+
+: if
+  0x48 op 0x8b op 0x03 op
+  0x48 op 0x83 op 0xc3 op 0x08 op
+  0x48 op 0x83 op 0xf8 op 0x00 op
+  0x0f op 0x84 op
+  cp @
+  0 op-lendian32
+; immediate ( -- )
+: then
+  dup 4 + cp @ swap - swap fixup-lendian32 drop drop
+; immediate ( -- )
 
 : exit 60 syscall1 ;

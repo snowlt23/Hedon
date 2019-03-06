@@ -456,6 +456,10 @@ void word_dp() {
   push_x((size_t)&dp);
 }
 
+void word_cp() {
+  push_x((size_t)&cp);
+}
+
 void word_dot() {
   size_t x = pop_x();
   printf("%zd", x);
@@ -522,6 +526,7 @@ void eval_token() {
 
   // builtin words
   BUILTIN_WORD("dp", word_dp, 8, {ALABEL(fixnuml)});
+  BUILTIN_WORD("cp", word_cp, 8, {ALABEL(fixnuml)});
   BUILTIN_WORD(".", word_dot, -8, {BLABEL(fixnuml)});
   BUILTIN_WORD("cr", word_cr, 0, {});
   BUILTIN_WORD("dump-label", word_dump_label, 0, {});
