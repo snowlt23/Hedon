@@ -225,11 +225,23 @@ void write_call_word(size_t wp) {
 // interpreter labels
 //
 
-void global_push_label(Label* l) {
-  if (state) push_label(&g_after, l);
-  else push_label(&i_after, l);
+void imm_push_label(Label* l) {
+  push_label(&i_after, l);
 }
 
+void global_push_label(Label* l) {
+  if (state) push_label(&g_after, l);
+  else imm_push_label(l);
+}
+
+void imm_pop_label(Label* l) {
+  if (i_after.count == 0) {
+    // if stack is empty at global state
+    error("stack is empty, but expected %s value", l->name);
+  }
+  Label* sl = pop_label(&i_after);
+  if (!eqlabel(l, sl)) error("unmatch %s label to %s", sl->name, l->name);
+}
 void global_pop_label(Label* l) {
   if (state) {
     if (g_after.count == 0) {
@@ -241,18 +253,25 @@ void global_pop_label(Label* l) {
     Label* sl = pop_label(&g_after);
     if (!eqlabel(l, sl)) error("unmatch %s label to %s", sl->name, l->name);
   } else {
-    if (i_after.count == 0) {
-      // if stack is empty at global state
-      error("stack is empty, but expected %s value", l->name);
-    }
-    Label* sl = pop_label(&i_after);
-    if (!eqlabel(l, sl)) error("unmatch %s label to %s", sl->name, l->name);
+    imm_pop_label(l);
+  }
+}
+
+void imm_apply_before(LabelStack before) {
+  for (int i=0; i<before.count; i++) {
+    imm_pop_label(before.data[before.count-i-1]);
+  }
+}
+
+void imm_apply_after(LabelStack after) {
+  for (int i=0; i<after.count; i++) {
+    imm_push_label(after.data[i]);
   }
 }
 
 void apply_before(LabelStack before) {
   for (int i=0; i<before.count; i++) {
-    global_pop_label(before.data[i]);
+    global_pop_label(before.data[before.count-i-1]);
   }
 }
 
@@ -491,13 +510,17 @@ void word_sub() {
 void eval_token() {
   Def* def = search_def(&globaldefs, token);
   if (def != NULL) {
-    apply_before(def->wl.before);
-    apply_after(def->wl.after);
     if (def->immediate) {
+      imm_apply_before(def->wl.before);
+      imm_apply_after(def->wl.after);
       call_word(def->wp);
     } else if (state) {
+      apply_before(def->wl.before);
+      apply_after(def->wl.after);
       write_call_word((size_t)def->wp);
     } else {
+      apply_before(def->wl.before);
+      apply_after(def->wl.after);
       call_word(def->wp);
     }
     return;

@@ -2,6 +2,8 @@
 : Err label ;
 : File label ;
 : IfAddr label ;
+: WhileAddr label ;
+: BeginAddr label ;
 
 : cell 8 ;
 : drop X 0x48 X 0x83 X 0xc3 X 0x08 ; ( Fixnum )
@@ -62,6 +64,9 @@
 : fixup-to-chere
   dup 4 + cp @ swap - swap fixup-lendian32 drop drop
 ;
+: op-from-chere
+  cp @ 4 + - op-lendian32
+;
 : if
   0x48 op 0x8b op 0x03 op
   0x48 op 0x83 op 0xc3 op 0x08 op
@@ -78,6 +83,24 @@
 ; immediate ( IfAddr -- IfAddr )
 : then
   fixup-to-chere
-; immediate ( IfAddr -- )
+; immediate ( IfAddr )
+
+: begin
+  cp @
+; immediate ( -- BeginAddr )
+: while
+  0x48 op 0x8b op 0x03 op
+  0x48 op 0x83 op 0xc3 op 0x08 op
+  0x48 op 0x83 op 0xf8 op 0x00 op
+  0x0f op 0x84 op
+  cp @
+  0 op-lendian32
+; immediate ( BeginAddr -- BeginAddr WhileAddr )
+: repeat
+  swap
+  0xe9 op
+  op-from-chere
+  fixup-to-chere
+; immediate ( BeginAddr WhileAddr )
 
 : exit 60 syscall1 ;
