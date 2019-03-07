@@ -21,106 +21,184 @@
 #define WORDSIZE 8
 
 typedef struct {
-  struct _Label** data;
+  struct _Type** data;
   size_t cap;
   size_t count;
-} LabelStack;
-typedef struct _Label {
+} TypeStack;
+typedef enum {
+  TYPE_SINGLE,
+  TYPE_UNION,
+  TYPE_PARAM,
+  TYPE_WRAP,
+} TypeKind;
+typedef struct _Type {
+  TypeKind kind;
   char* name;
   size_t id;
-} Label;
+  TypeStack params;
+} Type;
 typedef struct {
-  LabelStack before;
-  LabelStack after;
-} WordLabel;
+  TypeStack before;
+  TypeStack after;
+} WordType;
 
 typedef struct {
-  char name[256];
-  uint8_t* wp;
-  size_t codesize;
-  WordLabel wl;
-  bool immediate;
-} Def;
-typedef struct {
-  Def** data;
+  struct _Def** data;
   size_t cap;
   size_t count;
 } Defs;
+typedef struct _Def {
+  char name[256];
+  char* bufferaddr;
+  uint8_t* wp;
+  size_t codesize;
+  WordType wt;
+  bool immediate;
+  Defs traitwords;
+  bool template;
+  struct _Def* hook;
+} Def;
 
-FILE* fin;
+char* buffer;
 char token[256];
 uint8_t* cp;
 uint8_t* sp;
 uint8_t* dp;
 bool state;
+bool writestate;
 
 Defs globaldefs;
 Defs localdefs;
 
-LabelStack i_before;
-LabelStack i_after;
-LabelStack g_before;
-LabelStack g_after;
-size_t labelid;
-Label* labell;
-Label* fixnuml;
-Label* ptrl;
+TypeStack i_before;
+TypeStack i_after;
+TypeStack g_before;
+TypeStack g_after;
+size_t typeid;
+Type* typet;
+Type* intt;
+Type* ptrt;
 
 //
 // prototypes
 //
 
+void parse_token();
 void eval_token();
 
 //
-// label stack
+// type stack
 //
 
-Label* init_label(char* name, size_t id) {
-  Label* l = malloc(sizeof(Label));
+Type* init_type(char* name, size_t id) {
+  Type* l = malloc(sizeof(Type));
+  l->kind = TYPE_SINGLE;
   l->name = name;
   l->id = id;
+  l->params.data = NULL;
   return l;
 }
 
-Label* generate_label(char* name) {
-  return init_label(name, labelid++);
+Type* generate_type(char* name) {
+  return init_type(name, typeid++);
 }
 
-bool eqlabel(Label* a, Label* b) {
-  return a->id == b->id;
+bool eqtype(Type* a, Type* b) {
+  if (a->id == b->id) return true;
+  if (a->kind == TYPE_PARAM) return true;
+  if (b->kind == TYPE_PARAM) return true;
+  if (a->kind == TYPE_UNION) {
+    for (int i=0; i<a->params.count; i++) {
+      if (eqtype(a->params.data[i], b)) return true;
+    }
+  }
+  return false;
 }
 
-LabelStack init_labelstack(size_t cap) {
-  LabelStack ls;
-  ls.data = malloc(sizeof(Label*)* cap);
+TypeStack init_typestack(size_t cap) {
+  TypeStack ls;
+  ls.data = malloc(sizeof(Type*)*cap);
   ls.cap = cap;
   ls.count = 0;
   return ls;
 }
 
-void push_label(LabelStack* ls, Label* l) {
+TypeStack dup_typestack(TypeStack ts) {
+  TypeStack newts = init_typestack(ts.cap);
+  memcpy(newts.data, ts.data, sizeof(Type*)*ts.count);
+  newts.count = ts.count;
+  return newts;
+}
+
+void dump_typestack(FILE* f, TypeStack ts) {
+  if (ts.count != 0) {
+    Type* l = ts.data[0];
+    fprintf(f, "%s", l->name);
+  }
+  for (int i=1; i<ts.count; i++) {
+    Type* l = ts.data[i];
+    fprintf(f, " %s", l->name);
+  }
+}
+
+void push_type(TypeStack* ls, Type* l) {
   if (ls->cap <= ls->count) {
     while (ls->cap <= ls->count) ls->cap *= 2;
-    ls->data = realloc(ls->data, sizeof(Label*)*ls->cap);
+    ls->data = realloc(ls->data, sizeof(Type*)*ls->cap);
   }
   ls->data[ls->count++] = l;
 }
 
-Label* pop_label(LabelStack* ls) {
+Type* pop_type(TypeStack* ls) {
   return ls->data[--ls->count];
 }
 
-WordLabel init_wordlabel(LabelStack b, LabelStack a) {
-  WordLabel wl;
-  wl.before = b;
-  wl.after = a;
-  return wl;
+WordType init_wordtype(TypeStack b, TypeStack a) {
+  WordType wt;
+  wt.before = b;
+  wt.after = a;
+  return wt;
+}
+
+// union
+
+Type* init_uniontype(char* name, size_t id) {
+  Type* t = init_type(name, id);
+  t->kind = TYPE_UNION;
+  t->params = init_typestack(8);
+  return t;
+}
+
+Type* init_paramtype(char* name, size_t id) {
+  Type* t = init_type(name, id);
+  t->kind = TYPE_PARAM;
+  return t;
+}
+
+Type* init_wraptype(char* name, size_t id) {
+  Type* t = init_type(name, id);
+  t->kind = TYPE_WRAP;
+  t->params = init_typestack(8);
+  return t;
 }
 
 //
 // Definitions
 //
+
+Def* init_def() {
+  Def* def = malloc(sizeof(Def));
+  def->bufferaddr = buffer;
+  def->immediate = NULL;
+  def->traitwords.data = NULL;
+  def->template = false;
+  def->hook = NULL;
+  return def;
+}
+
+bool is_trait(Def* def) {
+  return def->traitwords.data != NULL;
+}
 
 Defs init_defs(size_t cap) {
   Defs defs;
@@ -154,6 +232,7 @@ Def* last_def(Defs defs) {
 //
 
 void write_to_cp(uint8_t* buf, size_t n) {
+  if (!writestate) return;
   memcpy(cp, buf, n);
   cp += n;
 }
@@ -221,75 +300,110 @@ void write_call_word(size_t wp) {
   write_hex(0x41, 0xff, 0xd0); // call r8
 }
 
-//
-// interpreter labels
-//
-
-void imm_push_label(Label* l) {
-  push_label(&i_after, l);
+void expand_word(Def* def) {
+  char* tmpbuf = buffer;
+  buffer = def->bufferaddr;
+  for (;;) {
+    parse_token();
+    if (strcmp(token, ";") == 0) break;
+    eval_token();
+  }
+  buffer = tmpbuf;
 }
 
-void global_push_label(Label* l) {
-  if (state) push_label(&g_after, l);
-  else imm_push_label(l);
+//
+// interpreter types
+//
+
+void imm_push_type(Type* l) {
+  push_type(&i_after, l);
 }
 
-void imm_pop_label(Label* l) {
+void global_push_type(Type* l) {
+  if (state) push_type(&g_after, l);
+  else imm_push_type(l);
+}
+
+bool imm_pop_type(Type* l) {
   if (i_after.count == 0) {
     // if stack is empty at global state
     error("stack is empty, but expected %s value", l->name);
   }
-  Label* sl = pop_label(&i_after);
-  if (!eqlabel(l, sl)) error("unmatch %s label to %s", sl->name, l->name);
+  Type* sl = pop_type(&i_after);
+  if (!eqtype(l, sl)) error("unmatch %s type to %s", sl->name, l->name);
+  return false;
 }
-void global_pop_label(Label* l) {
+bool global_pop_type(Type* l) {
   if (state) {
     if (g_after.count == 0) {
-      // pop_label for word argument.
-      push_label(&g_before, l);
-      return;
+      // pop_type for word argument.
+      // TODO: if uniontype,
+      push_type(&g_before, l);
+      return true;
     }
-    // consume current stack label.
-    Label* sl = pop_label(&g_after);
-    if (!eqlabel(l, sl)) error("unmatch %s label to %s", sl->name, l->name);
+    // consume current stack type.
+    Type* sl = pop_type(&g_after);
+    if (!eqtype(l, sl)) error("unmatch %s type to %s", sl->name, l->name);
+    if (l->kind == TYPE_PARAM) *l = *sl;
+    if (sl->kind == TYPE_PARAM) *sl = *l;
+    return false;
   } else {
-    imm_pop_label(l);
+    return imm_pop_type(l);
   }
 }
 
-void imm_apply_before(LabelStack before) {
+void imm_apply_before(TypeStack before) {
   for (int i=0; i<before.count; i++) {
-    imm_pop_label(before.data[before.count-i-1]);
+    imm_pop_type(before.data[before.count-i-1]);
   }
 }
 
-void imm_apply_after(LabelStack after) {
+void imm_apply_after(TypeStack after) {
   for (int i=0; i<after.count; i++) {
-    imm_push_label(after.data[i]);
+    imm_push_type(after.data[i]);
   }
 }
 
-void apply_before(LabelStack before) {
+void apply_before(TypeStack before) {
   for (int i=0; i<before.count; i++) {
-    global_pop_label(before.data[before.count-i-1]);
+    global_pop_type(before.data[before.count-i-1]);
   }
 }
 
-void apply_after(LabelStack after) {
+void apply_after(TypeStack after) {
   for (int i=0; i<after.count; i++) {
-    global_push_label(after.data[i]);
+    global_push_type(after.data[i]);
   }
+}
+
+bool eq_before(TypeStack a, TypeStack before) {
+  if (a.count < before.count) return false;
+  for (int i=0; i<before.count; i++) {
+    Type* l = a.data[a.count-i-1];
+    Type* r = before.data[i];
+    if (l->id == r->id) return true;
+  }
+  return false;
 }
 
 //
 // interpreter
 //
 
+char bgetc() {
+  char c = *buffer;
+  buffer++;
+  return c;
+}
+void bungetc() {
+  buffer--;
+}
+
 void skip_spaces() {
   for (;;) {
-    char c = fgetc(fin);
+    char c = bgetc();
     if (c == ' ' || c == '\n' || c == '\r' || c == '\t') continue;
-    ungetc(c, fin);
+    bungetc();
     break;
   }
 }
@@ -299,7 +413,7 @@ void parse_token() {
   int i;
   for (i=0; ; i++) {
     if (i >= 256-1) error("hedon word length should be <256.");
-    char c = fgetc(fin);
+    char c = bgetc();
     if (c == ' ' || c == '\n' || c == '\r' || c == '\t' || c == '\0' || c == EOF) break;
     token[i] = c;
   }
@@ -307,11 +421,11 @@ void parse_token() {
 }
 
 #define BLABEL(...) \
-  Label* barr[] = {__VA_ARGS__}; \
-  for (int i=0; i<sizeof(barr)/sizeof(Label*); i++) global_pop_label(barr[i]);
+  Type* barr[] = {__VA_ARGS__}; \
+  for (int i=0; i<sizeof(barr)/sizeof(Type*); i++) global_pop_type(barr[i]);
 #define ALABEL(...) \
-  Label* aarr[] = {__VA_ARGS__}; \
-  for (int i=0; i<sizeof(aarr)/sizeof(Label*); i++) global_push_label(aarr[i]);
+  Type* aarr[] = {__VA_ARGS__}; \
+  for (int i=0; i<sizeof(aarr)/sizeof(Type*); i++) global_push_type(aarr[i]);
 #define BUILTIN_WORD(s, f, stackinc, tdecl) \
   if (strcmp(token, s) == 0) { \
     tdecl; \
@@ -329,30 +443,43 @@ void parse_token() {
     return; \
   }
 
-void word_label() {
-  push_x((size_t)labell);
+void word_type() {
+  push_x((size_t)typet);
 }
 
-void word_fixnum() {
-  push_x((size_t)fixnuml);
+void word_int() {
+  push_x((size_t)intt);
 }
 
 void word_def() {
   parse_token(); // parse name
-  Def* def = malloc(sizeof(Def));
+  Def* def = init_def();
   add_def(&globaldefs, def);
   strcpy(def->name, token);
   def->wp = cp;
-  def->immediate = false;
-  // save global labelstack
-  LabelStack tmpb = g_before;
-  LabelStack tmpa = g_after;
-  // store word labelstack to global
-  g_before = init_labelstack(8);
-  g_after = init_labelstack(8);
+  // save global typestack
+  TypeStack tmpb = g_before;
+  TypeStack tmpa = g_after;
+  // store word typestack to global
+  g_before = init_typestack(8);
+  g_after = init_typestack(8);
 
   size_t p = (size_t)cp;
   state = true;
+  // type
+  writestate = false;
+  for (;;) {
+    parse_token();
+    if (strcmp(token, ";") == 0) break;
+    if (strlen(token) == 0) error("require end of definition.");
+    eval_token();
+  }
+  def->wt = init_wordtype(dup_typestack(g_before), dup_typestack(g_after));
+  g_before = init_typestack(8);
+  g_after = g_before;
+  // write with inferred type
+  buffer = def->bufferaddr;
+  writestate = true;
   for (;;) {
     parse_token();
     if (strcmp(token, ";") == 0) break;
@@ -361,34 +488,92 @@ void word_def() {
   }
   write_hex(0xc3); // ret
   state = false;
-  def->wl = init_wordlabel(g_before, g_after);
   def->codesize = (size_t)cp - p;
-  // restore global labelstack
+  // restore global typestack
   g_before = tmpb;
   g_after = tmpa;
 }
 
-void word_labelid() {
-  global_push_label(fixnuml);
-  write_x(labelid++);
+void word_typeid() {
+  global_push_type(intt);
+  write_x(typeid++);
 }
 
-void word_genlabel() {
+void word_gentype() {
   size_t id = pop_x();
   char* name = (char*)pop_x();
-  push_x((size_t)init_label(name, id));
+  push_x((size_t)init_type(name, id));
 }
 
-void word_label_imm() {
-  global_push_label(labell);
+void word_newtype() {
+  global_push_type(typet);
   char* name = last_def(globaldefs)->name;
-  size_t id = labelid++;
-  write_x((size_t)init_label(name, id));
+  size_t id = typeid++;
+  write_x((size_t)init_type(name, id));
+}
+
+void word_uniontype() {
+  global_push_type(typet);
+  char* name = last_def(globaldefs)->name;
+  size_t id = typeid++;
+  write_x((size_t)init_uniontype(name, id));
+}
+
+void word_paramtype_in() {
+  char* name = (char*)pop_x();
+  push_x((size_t)init_paramtype(name, typeid++));
+}
+
+void word_paramtype() {
+  global_push_type(typet);
+  char* name = last_def(globaldefs)->name;
+  write_x((size_t)name);
+  write_call_builtin(word_paramtype_in);
+  // write_stack_increment(8);
+}
+
+void word_is() {
+  Type* ut = (Type*)pop_x();
+  Type* t = (Type*)pop_x();
+  if (ut->kind != TYPE_UNION) error("%s type isn't union", ut->name);
+  push_type(&ut->params, t);
+}
+
+void word_tdrop() {
+  Type* t = (Type*)pop_x();
+  global_pop_type(t);
+}
+
+void word_tdup() {
+  Type* t = (Type*)pop_x();
+  if (!global_pop_type(t)) global_push_type(t);
+  global_push_type(t);
 }
 
 void word_immediate() {
   Def* def = last_def(globaldefs);
   def->immediate = true;
+}
+
+void word_hook() {
+  Def* wdef = last_def(globaldefs);
+  parse_token();
+  Def* hdef = search_def(&globaldefs, token);
+  wdef->hook = hdef;
+}
+
+void word_trait() {
+  Def* def = last_def(globaldefs);
+  def->traitwords = init_defs(32);
+}
+
+void word_impl() {
+  Def* wdef = last_def(globaldefs);
+  parse_token();
+  Def* tdef = search_def(&globaldefs, token);
+  if (tdef == NULL) error("undefined %s word", token);
+  if (!is_trait(tdef)) error("couldn't impl %s to %s, that not trait", wdef->name, tdef->name);
+  add_def(&tdef->traitwords, wdef);
 }
 
 void word_X() {
@@ -400,14 +585,13 @@ void word_X() {
 
 void word_create() {
   parse_token();
-  Def* def = malloc(sizeof(Def));
+  Def* def = init_def();
   add_def(&globaldefs, def);
   strcpy(def->name, token);
   def->wp = cp;
-  def->immediate = false;
-  def->wl = init_wordlabel(init_labelstack(8), init_labelstack(8));
+  def->wt = init_wordtype(init_typestack(8), init_typestack(8));
   def->codesize = (size_t)cp;
-  push_label(&def->wl.after, fixnuml);
+  push_type(&def->wt.after, intt);
   write_x((size_t)dp);
   write_hex(0xc3); // ret
   def->codesize = (size_t)cp - def->codesize;
@@ -432,42 +616,36 @@ void word_does() {
   *fixup = (size_t)cp;
 }
 
-void word_wordlabel() {
+void word_wordtype() {
   Def* def = last_def(globaldefs);
-  def->wl.before.count = 0;
-  def->wl.after.count = 0;
+  def->wt.before.count = 0;
+  def->wt.after.count = 0;
   for (;;) {
     parse_token();
     if (strcmp(token, "--") == 0) break;
     if (strcmp(token, ")") == 0) return;
     eval_token();
-    global_pop_label(labell);
-    Label* l = (Label*)pop_x();
-    push_label(&def->wl.before, l);
+    global_pop_type(typet);
+    Type* l = (Type*)pop_x();
+    push_type(&def->wt.before, l);
   }
   for (;;) {
     parse_token();
     if (strcmp(token, ")") == 0) break;
     eval_token();
-    global_pop_label(labell);
-    Label* l = (Label*)pop_x();
-    push_label(&def->wl.after, l);
+    global_pop_type(typet);
+    Type* l = (Type*)pop_x();
+    push_type(&def->wt.after, l);
   }
 }
 
-void word_dump_label() {
+void word_dump_type() {
   parse_token();
   Def* def = search_def(&globaldefs, token);
-  if (def == NULL) error("undefined %s word in dump-label", token);
-  for (int i=0; i<def->wl.before.count; i++) {
-    Label* l = def->wl.before.data[i];
-    printf("%s ", l->name);
-  }
-  printf("--");
-  for (int i=0; i<def->wl.after.count; i++) {
-    Label* l = def->wl.after.data[i];
-    printf(" %s", l->name);
-  }
+  if (def == NULL) error("undefined %s word in dump-type", token);
+  dump_typestack(stdout, def->wt.before);
+  printf(" -- ");
+  dump_typestack(stdout, def->wt.after);
 }
 
 void word_dump_code() {
@@ -480,12 +658,12 @@ void word_dump_code() {
 }
 
 void word_strlit() {
-  global_push_label(fixnuml);
+  global_push_type(intt);
   size_t p = (size_t)dp;
   for (;;) {
-    char c = fgetc(fin);
+    char c = bgetc();
     if (c == '"') break;
-    if (c == '\\') c = fgetc(fin);
+    if (c == '\\') c = bgetc();
     *dp = c;
     dp++;
   }
@@ -538,20 +716,43 @@ void word_sub() {
   push_x(a - b);
 }
 
+Def* solve_trait_word(Defs defs) {
+  for (int i=0; i<defs.count; i++) {
+    Def* def = defs.data[i];
+    if (eq_before(g_after, def->wt.before)) return def;
+  }
+  return NULL;
+}
+
 void eval_token() {
   Def* def = search_def(&globaldefs, token);
   if (def != NULL) {
+    if (def->hook != NULL) call_word(def->hook->wp);
     if (def->immediate) {
-      imm_apply_before(def->wl.before);
-      imm_apply_after(def->wl.after);
+      imm_apply_before(def->wt.before);
+      imm_apply_after(def->wt.after);
       call_word(def->wp);
+    } else if (def->template) {
+      expand_word(def);
+    } else if (is_trait(def) && !state) {
+      error("trait can't call on toplevel in currently");
+    } else if (is_trait(def) && !writestate) {
+      apply_before(def->wt.before);
+      apply_after(def->wt.after);
+    } else if (is_trait(def) && writestate) {
+      Def* solved = solve_trait_word(def->traitwords);
+      if (solved == NULL) {
+        last_def(globaldefs)->template = true;
+      } else {
+        write_call_word((size_t)solved->wp);
+      }
     } else if (state) {
-      apply_before(def->wl.before);
-      apply_after(def->wl.after);
+      apply_before(def->wt.before);
+      apply_after(def->wt.after);
       write_call_word((size_t)def->wp);
     } else {
-      apply_before(def->wl.before);
-      apply_after(def->wl.after);
+      apply_before(def->wt.before);
+      apply_after(def->wt.after);
       call_word(def->wp);
     }
     return;
@@ -559,7 +760,7 @@ void eval_token() {
 
   long x = strtol(token, NULL, 0);
   if (x != 0 || token[0] == '0') {
-    global_push_label(fixnuml);
+    global_push_type(intt);
     if (state) {
       write_x(x);
     } else {
@@ -568,37 +769,46 @@ void eval_token() {
     return;
   }
 
-  // builtin labels 
-  BUILTIN_WORD("Label", word_label, 8, {ALABEL(labell)});
-  BUILTIN_WORD("Fixnum", word_fixnum, 8, {ALABEL(labell)});
+  // builtin types 
+  BUILTIN_WORD("Type", word_type, 8, {ALABEL(typet)});
+  BUILTIN_WORD("Int", word_int, 8, {ALABEL(typet)});
 
   // builtin for def
   BUILTIN_WORD(":", word_def, 0, {});
-  BUILTIN_IMM_WORD("labelid", word_label_imm);
   BUILTIN_WORD("immediate", word_immediate, 0, {});
-  BUILTIN_IMM_WORD("(", word_wordlabel);
+  BUILTIN_WORD("hook", word_hook, 0, {});
+  BUILTIN_IMM_WORD("trait", word_trait);
+  BUILTIN_WORD("impl>", word_impl, 0, {});
+  BUILTIN_IMM_WORD("(", word_wordtype);
   BUILTIN_IMM_WORD("X", word_X);
   BUILTIN_WORD("create", word_create, 0, {});
   BUILTIN_IMM_WORD("does>", word_does);
   BUILTIN_IMM_WORD("s\"", word_strlit);
 
-  // builtin for label def
-  BUILTIN_WORD("labelid", word_labelid, 8, {ALABEL(fixnuml)});
-  BUILTIN_WORD("genlabel", word_genlabel, -8, {BLABEL(ptrl, fixnuml); ALABEL(labell)});
-  BUILTIN_IMM_WORD("label", word_label_imm);
+  // builtin for type def
+  BUILTIN_WORD("typeid", word_typeid, 8, {ALABEL(intt)});
+  BUILTIN_WORD("gentype", word_gentype, -8, {BLABEL(ptrt, intt); ALABEL(typet)});
+  BUILTIN_IMM_WORD("newtype", word_newtype);
+  BUILTIN_IMM_WORD("uniontype", word_uniontype);
+  BUILTIN_IMM_WORD("paramtype", word_paramtype);
+  BUILTIN_WORD("is", word_is, -16, {BLABEL(typet, typet)});
+
+  // builtin twords
+  BUILTIN_WORD("tdrop", word_tdrop, -8, {BLABEL(typet)});
+  BUILTIN_WORD("tdup", word_tdup, -8, {BLABEL(typet)});
 
   // builtin words
   BUILTIN_WORD("parse-token", word_parse_token, 0, {});
-  BUILTIN_WORD("token", word_token, 8, {ALABEL(fixnuml)});
-  BUILTIN_WORD("search-word", word_search_word, 0, {BLABEL(fixnuml); ALABEL(fixnuml)});
-  BUILTIN_WORD("word-code", word_word_code, 0, {BLABEL(fixnuml); ALABEL(fixnuml)});
-  BUILTIN_WORD("dp", word_dp, 8, {ALABEL(fixnuml)});
-  BUILTIN_WORD("cp", word_cp, 8, {ALABEL(fixnuml)});
-  BUILTIN_WORD(".", word_dot, -8, {BLABEL(fixnuml)});
+  BUILTIN_WORD("token", word_token, 8, {ALABEL(intt)});
+  BUILTIN_WORD("search-word", word_search_word, 0, {BLABEL(intt); ALABEL(intt)});
+  BUILTIN_WORD("word-code", word_word_code, 0, {BLABEL(intt); ALABEL(intt)});
+  BUILTIN_WORD("dp", word_dp, 8, {ALABEL(intt)});
+  BUILTIN_WORD("cp", word_cp, 8, {ALABEL(intt)});
+  BUILTIN_WORD(".", word_dot, -8, {BLABEL(intt)});
   BUILTIN_WORD("cr", word_cr, 0, {});
-  BUILTIN_WORD("dump-label", word_dump_label, 0, {});
+  BUILTIN_WORD("dump-type", word_dump_type, 0, {});
   BUILTIN_WORD("dump-code", word_dump_code, 0, {});
-  BUILTIN_WORD("-", word_sub, -8, {BLABEL(fixnuml, fixnuml); ALABEL(fixnuml)});
+  BUILTIN_WORD("-", word_sub, -8, {BLABEL(intt, intt); ALABEL(intt)});
 
   error("undefined %s word.", token);
 }
@@ -607,39 +817,52 @@ void eval_token() {
 // main
 //
 
-void startup(size_t cpsize, size_t spsize, size_t dpsize) {
-  fin = stdin;
+void startup(size_t buffersize, size_t cpsize, size_t spsize, size_t dpsize) {
+  buffer = malloc(buffersize);
   cp = (uint8_t*)jit_memalloc(cpsize);
   sp = (uint8_t*)malloc(spsize) + spsize;
   dp = (uint8_t*)malloc(dpsize);
   state = false;
+  writestate = true;
 
   globaldefs = init_defs(1024);
   localdefs = init_defs(1024);
 
-  i_before = init_labelstack(8);
-  i_after = init_labelstack(8);
-  g_before = init_labelstack(8);
-  g_after = init_labelstack(8);
-  labelid = 0;
-  labell = generate_label("Label");
-  fixnuml = generate_label("Fixnum");
-  ptrl = generate_label("Ptr");
+  i_before = init_typestack(8);
+  i_after = init_typestack(8);
+  g_before = init_typestack(8);
+  g_after = init_typestack(8);
+  typeid = 0;
+  typet = generate_type("Type");
+  intt = generate_type("Int");
+  ptrt = generate_type("Ptr");
+}
+
+void read_buffer(FILE* f) {
+  char* bufferstart = buffer;
+  for (;;) {
+    char c = fgetc(f);
+    if (c == EOF) break;
+    *buffer = c;
+    buffer++;
+  }
+  buffer = bufferstart;
 }
 
 void eval_file(FILE* f) {
-  FILE* tmpfin = fin;
-  fin = f;
+  char* tmpbuf = buffer;
+  buffer = malloc(1024*1024);
+  read_buffer(f);
   for (;;) {
     parse_token();
     if (strlen(token) == 0) break;
     eval_token();
   }
-  fin = tmpfin;
+  buffer = tmpbuf;
 }
 
 int main(int argc, char** argv) {
-  startup(1024*1024, 1024*10, 1024*10);
+  startup(1024*1024, 1024*1024, 1024*10, 1024*10);
 
   for (int i=1; i<argc; i++) {
     if (strcmp(argv[i], "-l") == 0) {
@@ -653,6 +876,7 @@ int main(int argc, char** argv) {
     }
   }
 
+  read_buffer(stdin);
   for (;;) {
     parse_token();
     if (strlen(token) == 0) break;

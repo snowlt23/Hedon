@@ -1,139 +1,23 @@
-: String label ;
-: Err label ;
-: File label ;
-: IfAddr label ;
-: WhileAddr label ;
-: BeginAddr label ;
+: Fixnum uniontype ;
+Int Fixnum is
+: a paramtype ;
+: b paramtype ;
+
+: drop trait ; ( a -- )
+: dup trait ; ( a -- a a )
 
 : cell 8 ;
-: drop X 0x48 X 0x83 X 0xc3 X 0x08 ; ( Fixnum )
-: grow X 0x48 X 0x83 X 0xeb X 0x08 ; ( -- Fixnum )
-: >rax X 0x48 X 0x8b X 0x03 drop ;
-: >rbx X 0x48 X 0x8b X 0x1b drop ;
-: >rcx X 0x48 X 0x8b X 0x0b drop ;
-: >rdi X 0x48 X 0x8b X 0x3b drop ;
-: >rsi X 0x48 X 0x8b X 0x33 drop ;
-: rax> grow X 0x48 X 0x89 X 0x03 ;
-: rbx> grow X 0x48 X 0x89 X 0x1b ;
-: rcx> grow X 0x48 X 0x89 X 0x0b ;
-: dup >rax grow rax> ;
-: swap >rax >rcx rax> rcx> ;
-: sp@ rbx> ;
-: sp! >rbx ;
 
-: + >rcx >rax X 0x48 X 0x01 X 0xc8 rax> ;
-: band >rcx >rax X 0x48 X 0x21 X 0xc8 rax> ;
-: shr >rcx >rax X 0x48 X 0xd3 X 0xe8 rax> ;
+: grow X 0x48 X 0x83 X 0xeb X 0x08 ; ( -- Int )
+: Int.drop X 0x48 X 0x83 X 0xc3 X 0x08 ; ( Int -- ) impl> drop
+: >rax X 0x48 X 0x8b X 0x03 Int.drop ;
+: >rcx X 0x48 X 0x8b X 0x0b Int.drop ;
+: rax> grow X 0x48 X 0x89 X 0x03 ;
+: rcx> grow X 0x48 X 0x89 X 0x0b ;
+: Int.dup >rax grow rax> ; ( Int -- Int Int ) impl> dup
+
+: + >rcx >rax X 0x48 X 0x01 X 0xc8 rax> ; ( Int Int -- Int )
+
 : @ >rax X 0x48 X 0x8b X 0x00 rax> ;
 : ! >rax >rcx X 0x48 X 0x89 X 0x08 ;
-: c! >rax >rcx X 0x88 X 0x08 ;
-: pick2 sp@ cell cell + + @ ; ( Fixnum Fixnum Fixnum -- Fixnum Fixnum Fixnum Fixnum )
-: pick3 sp@ cell cell + cell + + @ ; ( Fixnum Fixnum Fixnum -- Fixnum Fixnum Fixnum Fixnum )
-: +! dup @ pick3 + swap ! drop ;
 
-: here dp @ ;
-: allot dp +! ;
-: , here ! cell allot ;
-: var create 0 , ;
-: const create , does> @ ; ( Fixnum )
-: op cp @ c! 1 cp +! ;
-: ret 0xc3 op ; immediate
-
-: op-syscall 0x0f op 0x05 op ; immediate
-: syscall0 >rax op-syscall ;
-: syscall1 >rax >rdi op-syscall ;
-: syscall2 >rax >rdi >rsi op-syscall ;
-
-: op-lendian32
-  dup 0 shr 0xff band op
-  dup 8 shr 0xff band op
-  dup 16 shr 0xff band op
-  24 shr 0xff band op
-;
-: op-lendian64
-  dup 0 shr 0xff band op
-  dup 8 shr 0xff band op
-  dup 16 shr 0xff band op
-  dup 24 shr 0xff band op
-  dup 32 shr 0xff band op
-  dup 40 shr 0xff band op
-  dup 48 shr 0xff band op
-  56 shr 0xff band op
-;
-: fixup-byte
-  shr 0xff band pick2 c!
-  1 +
-;
-: fixup-lendian32
-  pick2 0 fixup-byte
-  pick2 8 fixup-byte
-  pick2 16 fixup-byte
-  pick2 24 fixup-byte
-;
-
-: fixup-to-chere
-  dup 4 + cp @ swap - swap fixup-lendian32 drop drop
-;
-: op-from-chere
-  cp @ 4 + - op-lendian32
-;
-: if
-  0x48 op 0x8b op 0x03 op
-  0x48 op 0x83 op 0xc3 op 0x08 op
-  0x48 op 0x83 op 0xf8 op 0x00 op
-  0x0f op 0x84 op
-  cp @
-  0 op-lendian32
-; immediate ( -- IfAddr )
-: else
-  0xe9 op
-  cp @
-  0 op-lendian32
-  fixup-to-chere
-; immediate ( IfAddr -- IfAddr )
-: then
-  fixup-to-chere
-; immediate ( IfAddr )
-
-: begin
-  cp @
-; immediate ( -- BeginAddr )
-: while
-  0x48 op 0x8b op 0x03 op
-  0x48 op 0x83 op 0xc3 op 0x08 op
-  0x48 op 0x83 op 0xf8 op 0x00 op
-  0x0f op 0x84 op
-  cp @
-  0 op-lendian32
-; immediate ( BeginAddr -- BeginAddr WhileAddr )
-: repeat
-  swap
-  0xe9 op
-  op-from-chere
-  fixup-to-chere
-; immediate ( BeginAddr WhileAddr )
-
-: op-call
-  0x48 op 0x8b op 0x03 op
-  0x48 op 0x83 op 0xc3 op 0x08 op
-  0xff op 0xd0 op
-;
-: op-literal
-  0x48 op 0x83 op 0xeb op 0x08 op
-  0x48 op 0xb8 op
-  op-lendian64
-  0x48 op 0x89 op 0x03 op
-;
-
-: postpone-in
-  op-literal
-  op-call
-;
-
-: postpone
-  parse-token token search-word word-code op-literal
-  s" postpone-in" search-word word-code op-literal
-  op-call
-; immediate
-
-: exit 60 syscall1 ;
