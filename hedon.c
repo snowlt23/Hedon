@@ -47,16 +47,26 @@ typedef struct {
   size_t cap;
   size_t count;
 } Defs;
+typedef struct {
+  struct _Def* def;
+  bool inout;
+} Eff;
+typedef struct {
+  Eff* data;
+  size_t cap;
+  size_t count;
+} Effs;
 typedef struct _Def {
   char name[256];
   char* bufferaddr;
   uint8_t* wp;
   size_t codesize;
+  Effs effects;
+  bool isbefore;
   WordType wt;
   bool immediate;
   Defs traitwords;
   bool template;
-  struct _Def* hook;
 } Def;
 
 char* buffer;
@@ -66,6 +76,7 @@ uint8_t* sp;
 uint8_t* dp;
 bool state;
 bool writestate;
+bool tapplystate;
 
 Defs globaldefs;
 Defs localdefs;
@@ -91,12 +102,18 @@ void eval_token();
 //
 
 Type* init_type(char* name, size_t id) {
-  Type* l = malloc(sizeof(Type));
-  l->kind = TYPE_SINGLE;
-  l->name = name;
-  l->id = id;
-  l->params.data = NULL;
-  return l;
+  Type* t = malloc(sizeof(Type));
+  t->kind = TYPE_SINGLE;
+  t->name = name;
+  t->id = id;
+  t->params.data = NULL;
+  return t;
+}
+
+Type* dup_type(Type* t) {
+  Type* newt = malloc(sizeof(Type));
+  *newt = *t;
+  return newt;
 }
 
 Type* generate_type(char* name) {
@@ -183,16 +200,45 @@ Type* init_wraptype(char* name, size_t id) {
 }
 
 //
+// Eff
+//
+
+Eff init_eff(Def* def, bool inout) {
+  Eff eff;
+  eff.def = def;
+  eff.inout = inout;
+  return eff;
+}
+
+Effs init_effs(size_t cap) {
+  Effs effs;
+  effs.data = malloc(sizeof(Eff)*cap);
+  effs.cap = cap;
+  effs.count = 0;
+  return effs;
+}
+
+void add_eff(Effs* effs, Eff eff) {
+  if (effs->cap <= effs->count) {
+    while (effs->cap <= effs->count) effs->cap *= 2;
+    effs->data = realloc(effs->data, sizeof(Eff)*effs->cap);
+  }
+  effs->data[effs->count++] = eff;
+}
+
+//
 // Definitions
 //
 
+Defs init_defs(size_t cap);
+
 Def* init_def() {
   Def* def = malloc(sizeof(Def));
+  def->effects = init_effs(16);
   def->bufferaddr = buffer;
   def->immediate = NULL;
   def->traitwords.data = NULL;
   def->template = false;
-  def->hook = NULL;
   return def;
 }
 
@@ -420,10 +466,10 @@ void parse_token() {
   token[i] = '\0';
 }
 
-#define BLABEL(...) \
+#define BTYPE(...) \
   Type* barr[] = {__VA_ARGS__}; \
   for (int i=0; i<sizeof(barr)/sizeof(Type*); i++) global_pop_type(barr[i]);
-#define ALABEL(...) \
+#define ATYPE(...) \
   Type* aarr[] = {__VA_ARGS__}; \
   for (int i=0; i<sizeof(aarr)/sizeof(Type*); i++) global_push_type(aarr[i]);
 #define BUILTIN_WORD(s, f, stackinc, tdecl) \
@@ -539,6 +585,12 @@ void word_is() {
   push_type(&ut->params, t);
 }
 
+void word_tapply() {
+  Type* t = (Type*)pop_x();
+  if (tapplystate) global_pop_type(t);
+  else global_push_type(t);
+}
+
 void word_tdrop() {
   Type* t = (Type*)pop_x();
   global_pop_type(t);
@@ -546,20 +598,14 @@ void word_tdrop() {
 
 void word_tdup() {
   Type* t = (Type*)pop_x();
-  if (!global_pop_type(t)) global_push_type(t);
+  global_pop_type(t);
+  global_push_type(t);
   global_push_type(t);
 }
 
 void word_immediate() {
   Def* def = last_def(globaldefs);
   def->immediate = true;
-}
-
-void word_hook() {
-  Def* wdef = last_def(globaldefs);
-  parse_token();
-  Def* hdef = search_def(&globaldefs, token);
-  wdef->hook = hdef;
 }
 
 void word_trait() {
@@ -616,27 +662,22 @@ void word_does() {
   *fixup = (size_t)cp;
 }
 
-void word_wordtype() {
+void word_force_effects() {
   Def* def = last_def(globaldefs);
-  def->wt.before.count = 0;
-  def->wt.after.count = 0;
+  def->effects.count = 0;
+  bool inout = true;
   for (;;) {
     parse_token();
-    if (strcmp(token, "--") == 0) break;
-    if (strcmp(token, ")") == 0) return;
-    eval_token();
-    global_pop_type(typet);
-    Type* l = (Type*)pop_x();
-    push_type(&def->wt.before, l);
-  }
-  for (;;) {
-    parse_token();
+    if (strcmp(token, "--") == 0) {
+      inout = false;
+      continue;
+    }
     if (strcmp(token, ")") == 0) break;
-    eval_token();
-    global_pop_type(typet);
-    Type* l = (Type*)pop_x();
-    push_type(&def->wt.after, l);
+    Def* eff = search_def(&globaldefs, token);
+    if (eff == NULL) error("undefined %s word", token);
+    add_eff(&def->effects, init_eff(eff, inout));
   }
+  inout = true;
 }
 
 void word_dump_type() {
@@ -646,6 +687,19 @@ void word_dump_type() {
   dump_typestack(stdout, def->wt.before);
   printf(" -- ");
   dump_typestack(stdout, def->wt.after);
+}
+
+void word_dump_effect() {
+  parse_token();
+  Def* def = search_def(&globaldefs, token);
+  if (def == NULL) error("undefined %s word in dump-effect", token);
+  for (int i=0; i<def->effects.count; i++) {
+    if (def->effects.data[i].inout) {
+      printf("%s:in ", def->effects.data[i].def->name);
+    } else {
+      printf("%s:out ", def->effects.data[i].def->name);
+    }
+  }
 }
 
 void word_dump_code() {
@@ -668,6 +722,12 @@ void word_strlit() {
     dp++;
   }
   write_x(p);
+}
+
+void word_type_dup() {
+  size_t t = pop_x();
+  push_x(t);
+  push_x(t);
 }
 
 void word_parse_token() {
@@ -724,21 +784,36 @@ Def* solve_trait_word(Defs defs) {
   return NULL;
 }
 
+void apply_effects(Def* def) {
+  Def* wdef = last_def(globaldefs);
+  for (int i=0; i<def->effects.count; i++) {
+    Eff eff = def->effects.data[i];
+    tapplystate = eff.inout;
+    call_word(eff.def->wp);
+    if (!writestate) add_eff(&wdef->effects, eff);
+  }
+}
+
+void add_int_effect() {
+  if (writestate) return;
+  Def* eff = search_def(&globaldefs, "Int");
+  if (eff == NULL) error("undefined Int word");
+  Def* wdef = last_def(globaldefs);
+  add_eff(&wdef->effects, init_eff(eff, false));
+}
+
 void eval_token() {
   Def* def = search_def(&globaldefs, token);
   if (def != NULL) {
-    if (def->hook != NULL) call_word(def->hook->wp);
     if (def->immediate) {
-      imm_apply_before(def->wt.before);
-      imm_apply_after(def->wt.after);
+      apply_effects(def);
       call_word(def->wp);
     } else if (def->template) {
       expand_word(def);
-    } else if (is_trait(def) && !state) {
-      error("trait can't call on toplevel in currently");
+    // } else if (is_trait(def) && !state) {
+    //   error("trait can't call on toplevel in currently");
     } else if (is_trait(def) && !writestate) {
-      apply_before(def->wt.before);
-      apply_after(def->wt.after);
+      apply_effects(def);
     } else if (is_trait(def) && writestate) {
       Def* solved = solve_trait_word(def->traitwords);
       if (solved == NULL) {
@@ -747,12 +822,10 @@ void eval_token() {
         write_call_word((size_t)solved->wp);
       }
     } else if (state) {
-      apply_before(def->wt.before);
-      apply_after(def->wt.after);
+      apply_effects(def);
       write_call_word((size_t)def->wp);
     } else {
-      apply_before(def->wt.before);
-      apply_after(def->wt.after);
+      apply_effects(def);
       call_word(def->wp);
     }
     return;
@@ -762,6 +835,7 @@ void eval_token() {
   if (x != 0 || token[0] == '0') {
     global_push_type(intt);
     if (state) {
+      add_int_effect();
       write_x(x);
     } else {
       push_x(x);
@@ -770,45 +844,47 @@ void eval_token() {
   }
 
   // builtin types 
-  BUILTIN_WORD("Type", word_type, 8, {ALABEL(typet)});
-  BUILTIN_WORD("Int", word_int, 8, {ALABEL(typet)});
+  BUILTIN_WORD("Type.t", word_type, 8, {ATYPE(typet)});
+  BUILTIN_WORD("Int.t", word_int, 8, {ATYPE(typet)});
 
   // builtin for def
   BUILTIN_WORD(":", word_def, 0, {});
   BUILTIN_WORD("immediate", word_immediate, 0, {});
-  BUILTIN_WORD("hook", word_hook, 0, {});
   BUILTIN_IMM_WORD("trait", word_trait);
   BUILTIN_WORD("impl>", word_impl, 0, {});
-  BUILTIN_IMM_WORD("(", word_wordtype);
+  BUILTIN_IMM_WORD("!(", word_force_effects);
   BUILTIN_IMM_WORD("X", word_X);
   BUILTIN_WORD("create", word_create, 0, {});
   BUILTIN_IMM_WORD("does>", word_does);
   BUILTIN_IMM_WORD("s\"", word_strlit);
 
   // builtin for type def
-  BUILTIN_WORD("typeid", word_typeid, 8, {ALABEL(intt)});
-  BUILTIN_WORD("gentype", word_gentype, -8, {BLABEL(ptrt, intt); ALABEL(typet)});
+  BUILTIN_WORD("typeid", word_typeid, 8, {ATYPE(intt)});
+  BUILTIN_WORD("gentype", word_gentype, -8, {BTYPE(ptrt, intt); ATYPE(typet)});
   BUILTIN_IMM_WORD("newtype", word_newtype);
   BUILTIN_IMM_WORD("uniontype", word_uniontype);
   BUILTIN_IMM_WORD("paramtype", word_paramtype);
-  BUILTIN_WORD("is", word_is, -16, {BLABEL(typet, typet)});
+  BUILTIN_WORD("is", word_is, -16, {BTYPE(typet, typet)});
 
   // builtin twords
-  BUILTIN_WORD("tdrop", word_tdrop, -8, {BLABEL(typet)});
-  BUILTIN_WORD("tdup", word_tdup, -8, {BLABEL(typet)});
+  BUILTIN_WORD("tapply", word_tapply, -8, {BTYPE(typet)});
+  BUILTIN_WORD("tdrop", word_tdrop, -8, {BTYPE(typet)});
+  BUILTIN_WORD("tdup", word_tdup, -8, {BTYPE(typet)});
 
   // builtin words
+  BUILTIN_WORD("builtin.Type.dup", word_type_dup, 8, {BTYPE(typet); ATYPE(typet, typet)});
   BUILTIN_WORD("parse-token", word_parse_token, 0, {});
-  BUILTIN_WORD("token", word_token, 8, {ALABEL(intt)});
-  BUILTIN_WORD("search-word", word_search_word, 0, {BLABEL(intt); ALABEL(intt)});
-  BUILTIN_WORD("word-code", word_word_code, 0, {BLABEL(intt); ALABEL(intt)});
-  BUILTIN_WORD("dp", word_dp, 8, {ALABEL(intt)});
-  BUILTIN_WORD("cp", word_cp, 8, {ALABEL(intt)});
-  BUILTIN_WORD(".", word_dot, -8, {BLABEL(intt)});
+  BUILTIN_WORD("token", word_token, 8, {ATYPE(intt)});
+  BUILTIN_WORD("search-word", word_search_word, 0, {BTYPE(intt); ATYPE(intt)});
+  BUILTIN_WORD("word-code", word_word_code, 0, {BTYPE(intt); ATYPE(intt)});
+  BUILTIN_WORD("dp", word_dp, 8, {ATYPE(intt)});
+  BUILTIN_WORD("cp", word_cp, 8, {ATYPE(intt)});
+  BUILTIN_WORD(".", word_dot, -8, {BTYPE(intt)});
   BUILTIN_WORD("cr", word_cr, 0, {});
   BUILTIN_WORD("dump-type", word_dump_type, 0, {});
+  BUILTIN_WORD("dump-effect", word_dump_effect, 0, {});
   BUILTIN_WORD("dump-code", word_dump_code, 0, {});
-  BUILTIN_WORD("-", word_sub, -8, {BLABEL(intt, intt); ALABEL(intt)});
+  BUILTIN_WORD("-", word_sub, -8, {BTYPE(intt, intt); ATYPE(intt)});
 
   error("undefined %s word.", token);
 }

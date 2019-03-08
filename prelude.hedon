@@ -1,23 +1,24 @@
-: Fixnum uniontype ;
-Int Fixnum is
+: Type Type.t tapply ;
+: Int Int.t tapply ;
 : a paramtype ;
 : b paramtype ;
 
-: drop trait ; ( a -- )
-: dup trait ; ( a -- a a )
+: drop.eff a tdrop ;
+: dup.eff a tdup ;
+: drop trait ; !( drop.eff )
+: dup trait ; !( dup.eff )
 
 : cell 8 ;
 
-: grow X 0x48 X 0x83 X 0xeb X 0x08 ; ( -- Int )
-: Int.drop X 0x48 X 0x83 X 0xc3 X 0x08 ; ( Int -- ) impl> drop
+: grow X 0x48 X 0x83 X 0xeb X 0x08 ; !( -- Int )
+: Int.drop X 0x48 X 0x83 X 0xc3 X 0x08 ; !( Int ) impl> drop
 : >rax X 0x48 X 0x8b X 0x03 Int.drop ;
 : >rcx X 0x48 X 0x8b X 0x0b Int.drop ;
 : rax> grow X 0x48 X 0x89 X 0x03 ;
 : rcx> grow X 0x48 X 0x89 X 0x0b ;
-: Int.dup >rax grow rax> ; ( Int -- Int Int ) impl> dup
+: Int.dup >rax grow rax> ; impl> dup
 
-: + >rcx >rax X 0x48 X 0x01 X 0xc8 rax> ; ( Int Int -- Int )
+: + >rcx >rax X 0x48 X 0x01 X 0xc8 rax> ;
 
 : @ >rax X 0x48 X 0x8b X 0x00 rax> ;
 : ! >rax >rcx X 0x48 X 0x89 X 0x08 ;
-
