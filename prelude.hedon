@@ -55,15 +55,11 @@
 : c! >rax >rcx X 0x88 X 0x08 ; !( Int Pointer -- )
 : Int.pick3.in
   a dup tdrop
-  b dup tdrop Type.swap rem b a
+  b dup tdrop
   Int.t tdrop
 ;
 : Int.pick3.out
   Int.t tapply tapply tapply Int.t tapply
 ;
-rem dump-type Int.pick3.in cr
-rem dump-type Int.pick3.out cr
-rem dump-effect a cr
-rem dump-effect Int.pick3.in cr
 
 : Int.pick3 sp@ cell cell + cell + p+ @ ; !( Int.pick3.in -- Int.pick3.out )
