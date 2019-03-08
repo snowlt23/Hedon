@@ -513,12 +513,16 @@ void add_int_effect() {
   add_eff(&wdef->effects, init_eff(eff, false));
 }
 
-#define BTYPE(...) \
-  Type* barr[] = {__VA_ARGS__}; \
-  for (int i=0; i<sizeof(barr)/sizeof(Type*); i++) global_pop_type(barr[i]);
-#define ATYPE(...) \
-  Type* aarr[] = {__VA_ARGS__}; \
-  for (int i=0; i<sizeof(aarr)/sizeof(Type*); i++) global_push_type(aarr[i]);
+#define BUILTIN_EFF(arr, d, inout, ...) \
+  Def* d = last_def(globaldefs); \
+  char* arr[] = {__VA_ARGS__}; \
+  for (int i=0; i<sizeof(arr)/sizeof(char*); i++) { \
+    Def* eff = search_def(&globaldefs, arr[i]); \
+    if (eff == NULL) error("undefined %s eff-word", arr[i]); \
+    add_eff(&d->effects, init_eff(eff, inout)); \
+  }
+#define IN_EFF(...) BUILTIN_EFF(inarr, indef, true, __VA_ARGS__)
+#define OUT_EFF(...) BUILTIN_EFF(outarr, outdef, false, __VA_ARGS__)
 #define BUILTIN_WORD(s, f, stackinc, tdecl) \
   if (strcmp(token, s) == 0) { \
     tdecl; \
@@ -586,7 +590,6 @@ void word_def() {
 }
 
 void word_typeid() {
-  global_push_type(intt);
   write_x(typeid++);
 }
 
@@ -597,14 +600,12 @@ void word_gentype() {
 }
 
 void word_newtype() {
-  global_push_type(typet);
   char* name = last_def(globaldefs)->name;
   size_t id = typeid++;
   write_x((size_t)init_type(name, id));
 }
 
 void word_uniontype() {
-  global_push_type(typet);
   char* name = last_def(globaldefs)->name;
   size_t id = typeid++;
   write_x((size_t)init_uniontype(name, id));
@@ -616,7 +617,6 @@ void word_paramtype_in() {
 }
 
 void word_paramtype() {
-  global_push_type(typet);
   char* name = last_def(globaldefs)->name;
   write_x((size_t)name);
   write_call_builtin(word_paramtype_in);
@@ -738,6 +738,13 @@ defer_inout:
   for (int i=0; i<ai; i++) {
     add_eff(&def->effects, init_eff(aeffs[i], false));
   }
+
+  spill_globaltype;
+  state = true;
+  apply_effects(def);
+  if (can_freeze(g_before) && can_freeze(g_after)) def->freeze = freeze(g_before, g_after);
+  state = false;
+  restore_globaltype;
 }
 
 void word_dump_type() {
@@ -795,10 +802,10 @@ void word_strlit() {
   write_x(p);
 }
 
-void word_type_dup() {
-  size_t t = pop_x();
-  push_x(t);
-  push_x(t);
+void word_rem() {
+  for (;;) {
+    if (bgetc() == '\n') break;
+  }
 }
 
 void word_parse_token() {
@@ -866,6 +873,7 @@ void eval_token() {
       } else {
         write_call_word((size_t)solved->wp);
       }
+      apply_effects(def);
     } else if (state) {
       apply_effects(def);
       write_call_word((size_t)def->wp);
@@ -888,10 +896,6 @@ void eval_token() {
     return;
   }
 
-  // builtin types 
-  BUILTIN_WORD("Type.t", word_type, 8, {ATYPE(typet)});
-  BUILTIN_WORD("Int.t", word_int, 8, {ATYPE(typet)});
-
   // builtin for def
   BUILTIN_WORD(":", word_def, 0, {});
   BUILTIN_WORD("immediate", word_immediate, 0, {});
@@ -900,36 +904,37 @@ void eval_token() {
   BUILTIN_IMM_WORD("!(", word_force_effects);
   BUILTIN_IMM_WORD("X", word_X);
   BUILTIN_WORD("create", word_create, 0, {});
-  BUILTIN_IMM_WORD("does>", word_does);
-  BUILTIN_IMM_WORD("s\"", word_strlit);
 
   // builtin for type def
-  BUILTIN_WORD("typeid", word_typeid, 8, {ATYPE(intt)});
-  BUILTIN_WORD("gentype", word_gentype, -8, {BTYPE(ptrt, intt); ATYPE(typet)});
-  BUILTIN_IMM_WORD("newtype", word_newtype);
-  BUILTIN_IMM_WORD("uniontype", word_uniontype);
-  BUILTIN_IMM_WORD("paramtype", word_paramtype);
-  BUILTIN_WORD("is", word_is, -16, {BTYPE(typet, typet)});
+  // BUILTIN_WORD("typeid", word_typeid, 8, {ATYPE(intt)});
+  // BUILTIN_WORD("gentype", word_gentype, -8, {BTYPE(ptrt, intt); ATYPE(typet)});
+  BUILTIN_WORD("builtin.Type.t", word_type, 8, {});
+  BUILTIN_WORD("builtin.Int.t", word_int, 8, {});
+  BUILTIN_WORD("builtin.newtype", word_newtype, 8, {});
+  BUILTIN_WORD("builtin.uniontype", word_uniontype, 8, {});
+  BUILTIN_WORD("builtin.paramtype", word_paramtype, 8, {});
+  BUILTIN_WORD("is", word_is, -16, {IN_EFF("Type", "Type")});
 
   // builtin twords
-  BUILTIN_WORD("tapply", word_tapply, -8, {BTYPE(typet)});
-  BUILTIN_WORD("tdrop", word_tdrop, -8, {BTYPE(typet)});
-  BUILTIN_WORD("tdup", word_tdup, -8, {BTYPE(typet)});
+  BUILTIN_WORD("builtin.tapply", word_tapply, -8, {});
+  BUILTIN_WORD("builtin.tdrop", word_tdrop, -8, {});
+  BUILTIN_WORD("builtin.tdup", word_tdup, -8, {});
 
   // builtin words
-  BUILTIN_WORD("builtin.Type.dup", word_type_dup, 8, {BTYPE(typet); ATYPE(typet, typet)});
+  BUILTIN_IMM_WORD("does>", word_does);
+  BUILTIN_IMM_WORD("s\"", word_strlit);
+  BUILTIN_IMM_WORD("rem", word_rem);
   BUILTIN_WORD("parse-token", word_parse_token, 0, {});
-  BUILTIN_WORD("token", word_token, 8, {ATYPE(intt)});
-  BUILTIN_WORD("search-word", word_search_word, 0, {BTYPE(intt); ATYPE(intt)});
-  BUILTIN_WORD("word-code", word_word_code, 0, {BTYPE(intt); ATYPE(intt)});
-  BUILTIN_WORD("builtin.dp", word_dp, 8, {ATYPE(intt)});
-  BUILTIN_WORD("builtin.cp", word_cp, 8, {ATYPE(intt)});
-  BUILTIN_WORD(".", word_dot, -8, {BTYPE(intt)});
+  BUILTIN_WORD("token", word_token, 8, {OUT_EFF("Int")});
+  BUILTIN_WORD("search-word", word_search_word, 0, {IN_EFF("Int"); OUT_EFF("Int")});
+  BUILTIN_WORD("word-code", word_word_code, 0, {IN_EFF("Int"); OUT_EFF("Int")});
+  BUILTIN_WORD("builtin.dp", word_dp, 8, {OUT_EFF("Int")});
+  BUILTIN_WORD("builtin.cp", word_cp, 8, {OUT_EFF("Int")});
+  BUILTIN_WORD(".", word_dot, -8, {IN_EFF("Int")});
   BUILTIN_WORD("cr", word_cr, 0, {});
   BUILTIN_WORD("dump-type", word_dump_type, 0, {});
   BUILTIN_WORD("dump-effect", word_dump_effect, 0, {});
   BUILTIN_WORD("dump-code", word_dump_code, 0, {});
-  // BUILTIN_WORD("-", word_sub, -8, {BTYPE(intt, intt); ATYPE(intt)});
 
   error("undefined %s word.", token);
 }

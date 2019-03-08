@@ -57,7 +57,7 @@ runtest ": 2dup dup dup ; dump-type 2dup : main 1 2dup + + ; main ." "a -- a a a
 runtest ": 2dup dup dup ; : t2dup Int dup dup ; : main 1 2dup + + ; main ." "3"
 runtest ": 2dup dup dup ; dump-effect 2dup" "dup.eff:in dup.eff:in "
 runtest ": 2dup dup dup ; : 3dup dup 2dup ; : main 1 3dup + + + ; main ." "4"
-# runtest "1 2 3 pick3 ." "1"
+runtest "1 2 3 Int.pick3 ." "1"
 # runtest "0 dp @ ! 45 dp @ +! dp @ @ ." "45"
 # runtest "1 , 2 , 3 , dp @ cell - @ ." "3"
 # runtest "9 const nine nine ." "9"
