@@ -18,6 +18,15 @@
 #define ierror(...) {fprintf(stderr, __VA_ARGS__); exit(1);}
 #define error(...) {fprintf(stderr, __VA_ARGS__); fprintf(stderr, " in %s", last_def(globaldefs)->name); exit(1);}
 
+#define spill_globaltype \
+  TypeStack tmpb = g_before; \
+  TypeStack tmpa = g_after; \
+  g_before = init_typestack(8); \
+  g_after = init_typestack(8);
+#define restore_globaltype \
+  g_before = tmpb; \
+  g_after = tmpa;
+
 #define WORDSIZE 8
 
 typedef struct {
@@ -37,10 +46,6 @@ typedef struct _Type {
   size_t id;
   TypeStack params;
 } Type;
-typedef struct {
-  TypeStack before;
-  TypeStack after;
-} WordType;
 
 typedef struct {
   struct _Def** data;
@@ -56,14 +61,17 @@ typedef struct {
   size_t cap;
   size_t count;
 } Effs;
+typedef struct {
+  TypeStack before;
+  TypeStack after;
+} EffFreeze;
 typedef struct _Def {
   char name[256];
   char* bufferaddr;
   uint8_t* wp;
   size_t codesize;
   Effs effects;
-  bool isbefore;
-  WordType wt;
+  EffFreeze* freeze;
   bool immediate;
   Defs traitwords;
   bool template;
@@ -170,13 +178,6 @@ Type* pop_type(TypeStack* ls) {
   return ls->data[--ls->count];
 }
 
-WordType init_wordtype(TypeStack b, TypeStack a) {
-  WordType wt;
-  wt.before = b;
-  wt.after = a;
-  return wt;
-}
-
 // union
 
 Type* init_uniontype(char* name, size_t id) {
@@ -227,6 +228,24 @@ void add_eff(Effs* effs, Eff eff) {
 }
 
 //
+// Freeze
+//
+
+EffFreeze* freeze(TypeStack b, TypeStack a) {
+  EffFreeze* fr = malloc(sizeof(EffFreeze));
+  fr->before = dup_typestack(b);
+  fr->after = dup_typestack(a);
+  return fr;
+}
+
+bool can_freeze(TypeStack ts) {
+  for (int i=0; i<ts.count; i++) {
+    if (ts.data[i]->kind != TYPE_SINGLE) return false;
+  }
+  return true;
+}
+
+//
 // Definitions
 //
 
@@ -235,6 +254,7 @@ Defs init_defs(size_t cap);
 Def* init_def() {
   Def* def = malloc(sizeof(Def));
   def->effects = init_effs(16);
+  def->freeze = NULL;
   def->bufferaddr = buffer;
   def->immediate = NULL;
   def->traitwords.data = NULL;
@@ -466,6 +486,33 @@ void parse_token() {
   token[i] = '\0';
 }
 
+Def* solve_trait_word(Defs defs) {
+  for (int i=0; i<defs.count; i++) {
+    Def* def = defs.data[i];
+    if (def->freeze == NULL) continue;
+    if (eq_before(g_after, def->freeze->before)) return def;
+  }
+  return NULL;
+}
+
+void apply_effects(Def* def) {
+  Def* wdef = last_def(globaldefs);
+  for (int i=0; i<def->effects.count; i++) {
+    Eff eff = def->effects.data[i];
+    tapplystate = eff.inout;
+    call_word(eff.def->wp);
+    if (!writestate) add_eff(&wdef->effects, eff);
+  }
+}
+
+void add_int_effect() {
+  if (writestate) return;
+  Def* eff = search_def(&globaldefs, "Int");
+  if (eff == NULL) error("undefined Int word");
+  Def* wdef = last_def(globaldefs);
+  add_eff(&wdef->effects, init_eff(eff, false));
+}
+
 #define BTYPE(...) \
   Type* barr[] = {__VA_ARGS__}; \
   for (int i=0; i<sizeof(barr)/sizeof(Type*); i++) global_pop_type(barr[i]);
@@ -503,12 +550,8 @@ void word_def() {
   add_def(&globaldefs, def);
   strcpy(def->name, token);
   def->wp = cp;
-  // save global typestack
-  TypeStack tmpb = g_before;
-  TypeStack tmpa = g_after;
-  // store word typestack to global
-  g_before = init_typestack(8);
-  g_after = init_typestack(8);
+
+  spill_globaltype;
 
   size_t p = (size_t)cp;
   state = true;
@@ -520,9 +563,12 @@ void word_def() {
     if (strlen(token) == 0) error("require end of definition.");
     eval_token();
   }
-  def->wt = init_wordtype(dup_typestack(g_before), dup_typestack(g_after));
+  if (can_freeze(g_before) && can_freeze(g_after)) def->freeze = freeze(g_before, g_after);
+
+  // store inferred typestack for write
   g_before = init_typestack(8);
   g_after = g_before;
+
   // write with inferred type
   buffer = def->bufferaddr;
   writestate = true;
@@ -535,9 +581,8 @@ void word_def() {
   write_hex(0xc3); // ret
   state = false;
   def->codesize = (size_t)cp - p;
-  // restore global typestack
-  g_before = tmpb;
-  g_after = tmpa;
+
+  restore_globaltype;
 }
 
 void word_typeid() {
@@ -635,9 +680,9 @@ void word_create() {
   add_def(&globaldefs, def);
   strcpy(def->name, token);
   def->wp = cp;
-  def->wt = init_wordtype(init_typestack(8), init_typestack(8));
   def->codesize = (size_t)cp;
-  push_type(&def->wt.after, intt);
+  def->freeze = freeze(init_typestack(8), init_typestack(8));
+  push_type(&def->freeze->after, intt);
   write_x((size_t)dp);
   write_hex(0xc3); // ret
   def->codesize = (size_t)cp - def->codesize;
@@ -684,9 +729,20 @@ void word_dump_type() {
   parse_token();
   Def* def = search_def(&globaldefs, token);
   if (def == NULL) error("undefined %s word in dump-type", token);
-  dump_typestack(stdout, def->wt.before);
-  printf(" -- ");
-  dump_typestack(stdout, def->wt.after);
+  if (def->freeze != NULL) {
+    dump_typestack(stdout, def->freeze->before);
+    printf(" -- ");
+    dump_typestack(stdout, def->freeze->after);
+  } else {
+    spill_globaltype;
+    state = true;
+    apply_effects(def);
+    dump_typestack(stdout, g_before);
+    printf(" -- ");
+    dump_typestack(stdout, g_after);
+    state = false;
+    restore_globaltype;
+  }
 }
 
 void word_dump_effect() {
@@ -774,32 +830,6 @@ void word_sub() {
   size_t b = pop_x();
   size_t a = pop_x();
   push_x(a - b);
-}
-
-Def* solve_trait_word(Defs defs) {
-  for (int i=0; i<defs.count; i++) {
-    Def* def = defs.data[i];
-    if (eq_before(g_after, def->wt.before)) return def;
-  }
-  return NULL;
-}
-
-void apply_effects(Def* def) {
-  Def* wdef = last_def(globaldefs);
-  for (int i=0; i<def->effects.count; i++) {
-    Eff eff = def->effects.data[i];
-    tapplystate = eff.inout;
-    call_word(eff.def->wp);
-    if (!writestate) add_eff(&wdef->effects, eff);
-  }
-}
-
-void add_int_effect() {
-  if (writestate) return;
-  Def* eff = search_def(&globaldefs, "Int");
-  if (eff == NULL) error("undefined Int word");
-  Def* wdef = last_def(globaldefs);
-  add_eff(&wdef->effects, init_eff(eff, false));
 }
 
 void eval_token() {
