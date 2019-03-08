@@ -50,7 +50,7 @@ runtest ": add5 5 + ; : x9 4 add5 ; x9 ." "9"
 runtest "4 5 Int.drop ." "4"
 runtest "555 . cr 0 ." "555
 0"
-runtest "9 dp @ ! dp @ @ ." "9"
+runtest "9 dp p@ ! dp p@ @ ." "9"
 runtest ": main 4 drop 5 ; main ." "5"
 runtest ": main 1 dup dup + + ; main ." "3"
 runtest ": 2dup dup dup ; dump-type 2dup : main 1 2dup + + ; main ." "a -- a a a3"

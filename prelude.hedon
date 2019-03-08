@@ -1,5 +1,7 @@
 : Type Type.t tapply ;
 : Int Int.t tapply ;
+: Pointer.t newtype ;
+: Pointer Pointer.t tapply ;
 : a paramtype ;
 : b paramtype ;
 
@@ -13,12 +15,27 @@
 : grow X 0x48 X 0x83 X 0xeb X 0x08 ; !( -- Int )
 : Int.drop X 0x48 X 0x83 X 0xc3 X 0x08 ; !( Int ) impl> drop
 : >rax X 0x48 X 0x8b X 0x03 Int.drop ;
+: >rbx X 0x48 X 0x8b X 0x1b Int.drop ;
 : >rcx X 0x48 X 0x8b X 0x0b Int.drop ;
+: >rdi X 0x48 X 0x8b X 0x3b Int.drop ;
+: >rsi X 0x48 X 0x8b X 0x33 Int.drop ;
 : rax> grow X 0x48 X 0x89 X 0x03 ;
+: rbx> grow X 0x48 X 0x89 X 0x1b ;
 : rcx> grow X 0x48 X 0x89 X 0x0b ;
 : Int.dup >rax grow rax> ; impl> dup
+: Int.swap >rax >rcx rax> rcx> ;
+: sp@ rbx> ; !( -- Pointer )
+: sp! >rbx ; !( Pointer Pointer -- )
+: dp builtin.dp ; !( -- Pointer )
+: cp builtin.cp ; !( -- Pointer )
 
 : + >rcx >rax X 0x48 X 0x01 X 0xc8 rax> ;
+: - >rcx >rax X 0x48 X 0x29 X 0xc8 rax> ;
 
-: @ >rax X 0x48 X 0x8b X 0x00 rax> ;
-: ! >rax >rcx X 0x48 X 0x89 X 0x08 ;
+: band >rcx >rax X 0x48 X 0x21 X 0xc8 rax> ;
+: shr >rcx >rax X 0x48 X 0xd3 X 0xe8 rax> ;
+: @ >rax X 0x48 X 0x8b X 0x00 rax> ; !( Pointer -- Int )
+: ! >rax >rcx X 0x48 X 0x89 X 0x08 ; !( Int Pointer -- )
+: p@ >rax X 0x48 X 0x8b X 0x00 rax> ; !( Pointer -- Pointer )
+: p! >rax >rcx X 0x48 X 0x89 X 0x08 ; !( Pointer Pointer -- )
+: c! >rax >rcx X 0x88 X 0x08 ; !( Int Pointer -- )

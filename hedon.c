@@ -709,20 +709,35 @@ void word_does() {
 
 void word_force_effects() {
   Def* def = last_def(globaldefs);
-  def->effects.count = 0;
-  bool inout = true;
+  Def* beffs[1024];
+  Def* aeffs[1024];
+  int bi = 0;
+  int ai = 0;
   for (;;) {
     parse_token();
-    if (strcmp(token, "--") == 0) {
-      inout = false;
-      continue;
-    }
-    if (strcmp(token, ")") == 0) break;
+    if (strcmp(token, "--") == 0) break;
+    if (strcmp(token, ")") == 0) goto defer_inout;
     Def* eff = search_def(&globaldefs, token);
     if (eff == NULL) error("undefined %s word", token);
-    add_eff(&def->effects, init_eff(eff, inout));
+    beffs[bi] = eff;
+    bi++;
   }
-  inout = true;
+  for (;;) {
+    parse_token();
+    if (strcmp(token, ")") == 0) goto defer_inout;
+    Def* eff = search_def(&globaldefs, token);
+    if (eff == NULL) error("undefined %s word", token);
+    aeffs[ai] = eff;
+    ai++;
+  }
+defer_inout:
+  def->effects.count = 0;
+  for (int i=0; i<bi; i++) {
+    add_eff(&def->effects, init_eff(beffs[bi-i-1], true));
+  }
+  for (int i=0; i<ai; i++) {
+    add_eff(&def->effects, init_eff(aeffs[i], false));
+  }
 }
 
 void word_dump_type() {
@@ -907,14 +922,14 @@ void eval_token() {
   BUILTIN_WORD("token", word_token, 8, {ATYPE(intt)});
   BUILTIN_WORD("search-word", word_search_word, 0, {BTYPE(intt); ATYPE(intt)});
   BUILTIN_WORD("word-code", word_word_code, 0, {BTYPE(intt); ATYPE(intt)});
-  BUILTIN_WORD("dp", word_dp, 8, {ATYPE(intt)});
-  BUILTIN_WORD("cp", word_cp, 8, {ATYPE(intt)});
+  BUILTIN_WORD("builtin.dp", word_dp, 8, {ATYPE(intt)});
+  BUILTIN_WORD("builtin.cp", word_cp, 8, {ATYPE(intt)});
   BUILTIN_WORD(".", word_dot, -8, {BTYPE(intt)});
   BUILTIN_WORD("cr", word_cr, 0, {});
   BUILTIN_WORD("dump-type", word_dump_type, 0, {});
   BUILTIN_WORD("dump-effect", word_dump_effect, 0, {});
   BUILTIN_WORD("dump-code", word_dump_code, 0, {});
-  BUILTIN_WORD("-", word_sub, -8, {BTYPE(intt, intt); ATYPE(intt)});
+  // BUILTIN_WORD("-", word_sub, -8, {BTYPE(intt, intt); ATYPE(intt)});
 
   error("undefined %s word.", token);
 }
