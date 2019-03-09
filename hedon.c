@@ -523,9 +523,11 @@ void add_int_effect() {
 #define BUILTIN_EFF(arr, d, inout, ...) \
   Def* d = last_def(globaldefs); \
   char* arr[] = {__VA_ARGS__}; \
+  tapplystate = inout; \
   for (int i=0; i<sizeof(arr)/sizeof(char*); i++) { \
     Def* eff = search_def(&globaldefs, arr[i]); \
     if (eff == NULL) error("undefined %s eff-word", arr[i]); \
+    call_word(eff->wp); \
     add_eff(&d->effects, init_eff(eff, inout)); \
   }
 #define IN_EFF(...) BUILTIN_EFF(inarr, indef, true, __VA_ARGS__)
@@ -637,27 +639,38 @@ void word_is() {
   push_type(&ut->params, t);
 }
 
-void word_tapply() {
+void word_eff_apply() {
   Type* t = (Type*)pop_x();
   if (tapplystate) global_pop_type(t);
   else global_push_type(t);
 }
 
-void word_tpush() {
+void word_eff_push() {
   Type* t = (Type*)pop_x();
   global_push_type(t);
 }
 
-void word_tdrop() {
+void word_eff_drop() {
   Type* t = (Type*)pop_x();
   global_pop_type(t);
 }
 
-void word_tdup() {
+void word_eff_dup() {
   Type* t = (Type*)pop_x();
   global_pop_type(t);
   global_push_type(t);
   global_push_type(t);
+}
+
+void word_eff_save() {
+  push_x(g_before.count);
+  push_x(g_after.count);
+}
+void word_eff_load() {
+  size_t ac = pop_x();
+  size_t bc = pop_x();
+  g_before.count = bc;
+  g_after.count = ac;
 }
 
 void word_immediate() {
@@ -935,10 +948,12 @@ void eval_token() {
   BUILTIN_WORD("is", word_is, -16, {IN_EFF("Type", "Type")});
 
   // builtin twords
-  BUILTIN_WORD("builtin.tapply", word_tapply, -8, {});
-  BUILTIN_WORD("builtin.tpush", word_tpush, -8, {});
-  BUILTIN_WORD("builtin.tdrop", word_tdrop, -8, {});
-  BUILTIN_WORD("builtin.tdup", word_tdup, -8, {});
+  BUILTIN_WORD("builtin.eff.push", word_eff_push, -8, {});
+  BUILTIN_WORD("builtin.eff.drop", word_eff_drop, -8, {});
+  BUILTIN_WORD("builtin.eff.dup", word_eff_dup, -8, {});
+  BUILTIN_WORD("builtin.eff.apply", word_eff_apply, -8, {});
+  BUILTIN_WORD("builtin.eff.save", word_eff_save, 16, {});
+  BUILTIN_WORD("builtin.eff.load", word_eff_load, -16, {});
 
   // builtin words
   BUILTIN_IMM_WORD("does>", word_does);

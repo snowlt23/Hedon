@@ -1,23 +1,29 @@
-: Type builtin.Type.t builtin.tapply ;
+: Type builtin.Type.t builtin.eff.apply ;
 : Type.t builtin.Type.t ; !( -- Type )
 : newtype builtin.newtype ; immediate !( -- Type )
 : uniontype builtin.uniontype ; immediate !( -- Type )
 : paramtype builtin.paramtype ; immediate !( -- Type )
-: tdrop builtin.tdrop ; !( Type -- )
-: tpush builtin.tpush ; !( Type -- )
-: tdup builtin.tdup ; !( Type -- )
-: tapply builtin.tapply ; !( Type -- )
+: EffSave newtype ;
+: eff.drop builtin.eff.drop ; !( Type -- )
+: eff.push builtin.eff.push ; !( Type -- )
+: eff.dup builtin.eff.dup ; !( Type -- )
+: eff.apply builtin.eff.apply ; !( Type -- )
+: eff.save builtin.eff.save ; !( -- EffSave )
+: eff.load builtin.eff.load ; !( EffSave -- )
 
 : Int.t builtin.Int.t ; !( -- Type )
-: Int Int.t tapply ;
+: Int Int.t eff.apply ;
 : Pointer.t newtype ;
-: Pointer Pointer.t tapply ;
+: Pointer Pointer.t eff.apply ;
 : a paramtype ;
 : b paramtype ;
 : c paramtype ;
 
-: drop.eff a tdrop ;
-: dup.eff a tdup ;
+: IfAddr.t newtype ;
+: IfAddr IfAddr.t eff.apply ;
+
+: drop.eff a eff.drop ;
+: dup.eff a eff.dup ;
 : drop trait ; !( drop.eff )
 : dup trait ; !( dup.eff )
 
@@ -54,11 +60,18 @@
 : p@ >rax X 0x48 X 0x8b X 0x00 rax> ; !( Pointer -- Pointer )
 : p! >rax >rcx X 0x48 X 0x89 X 0x08 ; !( Pointer Pointer -- )
 : c! >rax >rcx X 0x88 X 0x08 ; !( Int Pointer -- )
+: Int.pick2.eff
+  a dup eff.drop
+  Int.t eff.drop
+  Int.t eff.push eff.push Int.t eff.push
+;
+: Int.pick2 sp@ cell cell + p+ @ ; !( Int.pick2.eff )
+: cast-pointer ; !( Int -- Pointer )
 : Int.pick3.eff
-  a dup tdrop
-  b dup tdrop
-  Int.t tdrop
-  Int.t tpush tpush tpush Int.t tpush
+  a dup eff.drop
+  b dup eff.drop
+  Int.t eff.drop
+  Int.t eff.push eff.push eff.push Int.t eff.push
 ;
 : Int.pick3 sp@ cell cell + cell + p+ @ ; !( Int.pick3.eff )
 : +! dup @ Int.pick3 + Pointer.Int.swap ! Int.drop ;
@@ -74,6 +87,39 @@
 
 : op cp p@ c! 1 cp +! ;
 : ret 0xc3 op ; immediate
+: op-lendian32
+  dup 0 shr 0xff band op
+  dup 8 shr 0xff band op
+  dup 16 shr 0xff band op
+  24 shr 0xff band op
+;
+: op-lendian64
+  dup 0 shr 0xff band op
+  dup 8 shr 0xff band op
+  dup 16 shr 0xff band op
+  dup 24 shr 0xff band op
+  dup 32 shr 0xff band op
+  dup 40 shr 0xff band op
+  dup 48 shr 0xff band op
+  56 shr 0xff band op
+;
+: fixup-byte
+  shr 0xff band Int.pick2 cast-pointer c!
+  1 +
+;
+: fixup-lendian32
+  Int.pick2 0 fixup-byte
+  Int.pick2 8 fixup-byte
+  Int.pick2 16 fixup-byte
+  Int.pick2 24 fixup-byte
+;
+
+: fixup-to-chere
+  dup 4 + cp @ Int.swap - Int.swap fixup-lendian32 drop drop
+;
+: op-from-chere
+  cp @ 4 + - op-lendian32
+;
 
 rem syscalls
 : op-syscall 0x0f op 0x05 op ; immediate
@@ -81,3 +127,25 @@ rem syscalls
 : syscall1 >rax >rdi op-syscall ;
 : syscall2 >rax >rdi >rsi op-syscall ;
 : exit 60 syscall1 ;
+
+: if
+  0x48 op 0x8b op 0x03 op
+  0x48 op 0x83 op 0xc3 op 0x08 op
+  0x48 op 0x83 op 0xf8 op 0x00 op
+  0x0f op 0x84 op
+  cp @
+  0 op-lendian32
+  Int.t eff.drop eff.save
+; immediate !( )
+: else
+  eff.load
+  0xe9 op
+  0 op-lendian32
+  fixup-to-chere
+  cp @ 4 -
+  eff.save
+; immediate !( )
+: then
+  Int.drop Int.drop
+  fixup-to-chere
+; immediate !( )
