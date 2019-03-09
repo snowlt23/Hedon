@@ -155,6 +155,14 @@ TypeStack dup_typestack(TypeStack ts) {
   return newts;
 }
 
+TypeStack rev_typestack(TypeStack ts) {
+  TypeStack newts = dup_typestack(ts);
+  for (int i=0; i<ts.count; i++) {
+    newts.data[i] = ts.data[ts.count-i-1];
+  }
+  return newts;
+}
+
 void dump_typestack(FILE* f, TypeStack ts) {
   if (ts.count != 0) {
     Type* l = ts.data[0];
@@ -233,7 +241,7 @@ void add_eff(Effs* effs, Eff eff) {
 
 EffFreeze* freeze(TypeStack b, TypeStack a) {
   EffFreeze* fr = malloc(sizeof(EffFreeze));
-  fr->before = dup_typestack(b);
+  fr->before = rev_typestack(b);
   fr->after = dup_typestack(a);
   return fr;
 }
@@ -418,18 +426,6 @@ bool global_pop_type(Type* l) {
   }
 }
 
-void imm_apply_before(TypeStack before) {
-  for (int i=0; i<before.count; i++) {
-    imm_pop_type(before.data[before.count-i-1]);
-  }
-}
-
-void imm_apply_after(TypeStack after) {
-  for (int i=0; i<after.count; i++) {
-    imm_push_type(after.data[i]);
-  }
-}
-
 void apply_before(TypeStack before) {
   for (int i=0; i<before.count; i++) {
     global_pop_type(before.data[before.count-i-1]);
@@ -489,7 +485,7 @@ void parse_token() {
 Def* solve_trait_word(Defs defs) {
   for (int i=0; i<defs.count; i++) {
     Def* def = defs.data[i];
-    if (def->freeze == NULL) continue;
+    if (def->freeze == NULL) error("%s impl isn't freezing", def->name);
     if (eq_before(g_after, def->freeze->before)) return def;
   }
   return NULL;
@@ -497,11 +493,22 @@ Def* solve_trait_word(Defs defs) {
 
 void apply_effects(Def* def) {
   Def* wdef = last_def(globaldefs);
+  if (def->freeze != NULL) {
+    apply_before(def->freeze->before);
+    apply_after(def->freeze->after);
+    goto defer_eff;
+  }
   for (int i=0; i<def->effects.count; i++) {
     Eff eff = def->effects.data[i];
     tapplystate = eff.inout;
     call_word(eff.def->wp);
-    if (!writestate) add_eff(&wdef->effects, eff);
+  }
+defer_eff:
+  if (!writestate) {
+    for (int i=0; i<def->effects.count; i++) {
+      Eff eff = def->effects.data[i];
+      add_eff(&wdef->effects, eff);
+    }
   }
 }
 
@@ -570,8 +577,8 @@ void word_def() {
   if (can_freeze(g_before) && can_freeze(g_after)) def->freeze = freeze(g_before, g_after);
 
   // store inferred typestack for write
+  g_after = rev_typestack(g_before);
   g_before = init_typestack(8);
-  g_after = g_before;
 
   // write with inferred type
   buffer = def->bufferaddr;
@@ -634,6 +641,11 @@ void word_tapply() {
   Type* t = (Type*)pop_x();
   if (tapplystate) global_pop_type(t);
   else global_push_type(t);
+}
+
+void word_tpush() {
+  Type* t = (Type*)pop_x();
+  global_push_type(t);
 }
 
 void word_tdrop() {
@@ -709,6 +721,7 @@ void word_does() {
 
 void word_force_effects() {
   Def* def = last_def(globaldefs);
+  def->freeze = NULL;
   Def* beffs[1024];
   Def* aeffs[1024];
   int bi = 0;
@@ -747,6 +760,12 @@ defer_inout:
   restore_globaltype;
 }
 
+void word_dump_tstack() {
+  dump_typestack(stdout, rev_typestack(g_before));
+  printf(" -- ");
+  dump_typestack(stdout, g_after);
+}
+
 void word_dump_type() {
   parse_token();
   Def* def = search_def(&globaldefs, token);
@@ -759,7 +778,7 @@ void word_dump_type() {
     spill_globaltype;
     state = true;
     apply_effects(def);
-    dump_typestack(stdout, g_before);
+    dump_typestack(stdout, rev_typestack(g_before));
     printf(" -- ");
     dump_typestack(stdout, g_after);
     state = false;
@@ -869,6 +888,7 @@ void eval_token() {
     } else if (is_trait(def) && writestate) {
       Def* solved = solve_trait_word(def->traitwords);
       if (solved == NULL) {
+        if (last_def(globaldefs)->freeze != NULL) error("unresolved %s trait word", def->name);
         last_def(globaldefs)->template = true;
       } else {
         write_call_word((size_t)solved->wp);
@@ -917,6 +937,7 @@ void eval_token() {
 
   // builtin twords
   BUILTIN_WORD("builtin.tapply", word_tapply, -8, {});
+  BUILTIN_WORD("builtin.tpush", word_tpush, -8, {});
   BUILTIN_WORD("builtin.tdrop", word_tdrop, -8, {});
   BUILTIN_WORD("builtin.tdup", word_tdup, -8, {});
 
@@ -932,6 +953,7 @@ void eval_token() {
   BUILTIN_WORD("builtin.cp", word_cp, 8, {OUT_EFF("Int")});
   BUILTIN_WORD(".", word_dot, -8, {IN_EFF("Int")});
   BUILTIN_WORD("cr", word_cr, 0, {});
+  BUILTIN_WORD("dump-tstack", word_dump_tstack, 0, {});
   BUILTIN_WORD("dump-type", word_dump_type, 0, {});
   BUILTIN_WORD("dump-effect", word_dump_effect, 0, {});
   BUILTIN_WORD("dump-code", word_dump_code, 0, {});

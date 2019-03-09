@@ -4,6 +4,7 @@
 : uniontype builtin.uniontype ; immediate !( -- Type )
 : paramtype builtin.paramtype ; immediate !( -- Type )
 : tdrop builtin.tdrop ; !( Type -- )
+: tpush builtin.tpush ; !( Type -- )
 : tdup builtin.tdup ; !( Type -- )
 : tapply builtin.tapply ; !( Type -- )
 
@@ -34,7 +35,9 @@
 : rcx> grow X 0x48 X 0x89 X 0x0b ;
 : Int.dup >rax grow rax> ; impl> dup
 : Type.dup Int.dup ; !( Type -- Type Type ) impl> dup
+: Pointer.dup Int.dup ; !( Pointer -- Pointer Pointer ) impl> dup
 : Int.swap >rax >rcx rax> rcx> ;
+: Pointer.Int.swap Int.swap ; !( Pointer Int -- Int Pointer )
 : Type.swap Int.swap ; !( Type Type -- Type Type )
 : sp@ rbx> ; !( -- Pointer )
 : sp! >rbx ; !( Pointer Pointer -- )
@@ -43,8 +46,8 @@
 
 : + >rcx >rax X 0x48 X 0x01 X 0xc8 rax> ;
 : - >rcx >rax X 0x48 X 0x29 X 0xc8 rax> ;
-: p+ + ; !( Pointer Int )
-: p- - ; !( Pointer Int )
+: p+ + ; !( Pointer Int -- Pointer )
+: p- - ; !( Pointer Int -- Pointer )
 
 : band >rcx >rax X 0x48 X 0x21 X 0xc8 rax> ;
 : shr >rcx >rax X 0x48 X 0xd3 X 0xe8 rax> ;
@@ -53,13 +56,11 @@
 : p@ >rax X 0x48 X 0x8b X 0x00 rax> ; !( Pointer -- Pointer )
 : p! >rax >rcx X 0x48 X 0x89 X 0x08 ; !( Pointer Pointer -- )
 : c! >rax >rcx X 0x88 X 0x08 ; !( Int Pointer -- )
-: Int.pick3.in
+: Int.pick3.eff
   a dup tdrop
   b dup tdrop
   Int.t tdrop
+  Int.t tpush tpush tpush Int.t tpush
 ;
-: Int.pick3.out
-  Int.t tapply tapply tapply Int.t tapply
-;
-
-: Int.pick3 sp@ cell cell + cell + p+ @ ; !( Int.pick3.in -- Int.pick3.out )
+: Int.pick3 sp@ cell cell + cell + p+ @ ; !( Int.pick3.eff )
+: +! dup @ Int.pick3 + Pointer.Int.swap ! Int.drop ;
