@@ -690,11 +690,10 @@ void word_create() {
   parse_token();
   Def* def = init_def();
   add_def(&globaldefs, def);
+  OUT_EFF("Pointer"); 
   strcpy(def->name, token);
   def->wp = cp;
   def->codesize = (size_t)cp;
-  def->freeze = freeze(init_typestack(8), init_typestack(8));
-  push_type(&def->freeze->after, intt);
   write_x((size_t)dp);
   write_hex(0xc3); // ret
   def->codesize = (size_t)cp - def->codesize;

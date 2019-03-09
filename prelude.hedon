@@ -41,8 +41,6 @@
 : Type.swap Int.swap ; !( Type Type -- Type Type )
 : sp@ rbx> ; !( -- Pointer )
 : sp! >rbx ; !( Pointer Pointer -- )
-: dp builtin.dp ; !( -- Pointer )
-: cp builtin.cp ; !( -- Pointer )
 
 : + >rcx >rax X 0x48 X 0x01 X 0xc8 rax> ;
 : - >rcx >rax X 0x48 X 0x29 X 0xc8 rax> ;
@@ -64,3 +62,22 @@
 ;
 : Int.pick3 sp@ cell cell + cell + p+ @ ; !( Int.pick3.eff )
 : +! dup @ Int.pick3 + Pointer.Int.swap ! Int.drop ;
+
+: dp builtin.dp ; !( -- Pointer )
+: dp@ dp p@ ;
+: cp builtin.cp ; !( -- Pointer )
+: here dp@ ;
+: allot dp +! ;
+: , here ! cell allot ;
+: var create 0 , ;
+: const create , does> @ ; !( Int )
+
+: op cp p@ c! 1 cp +! ;
+: ret 0xc3 op ; immediate
+
+rem syscalls
+: op-syscall 0x0f op 0x05 op ; immediate
+: syscall0 >rax op-syscall ;
+: syscall1 >rax >rdi op-syscall ;
+: syscall2 >rax >rdi >rsi op-syscall ;
+: exit 60 syscall1 ;

@@ -1,4 +1,6 @@
 var nine
-nine @ .
-9 nine !
-nine @ .
+: main
+  nine @ .
+  9 nine !
+  nine @ .
+; main
