@@ -64,6 +64,8 @@ runtest "1 , 2 , 3 , dp@ cell p- @ ." "3"
 # runtest "9 const nine nine ." "9"
 runtest "4 . 5 . 0 exit 6 ." "45"
 runtest ": main 9 . ; dump-type main" " -- "
+
+# control flow
 runtest ": main 0 if 4 . then 1 if 5 . then ; main" "5"
 runtest ": main 0 if 4 . then 1 if 5 . then ; dump-type main" " -- "
 runtest ": main 1 if 4 . else 5 . then 0 if 4 . else 5 . then ; main" "45"
@@ -78,3 +80,6 @@ error_filetest "examples/basic-type.hedon" "unmatch MyInt type to Int.t in mi"
 filetest "examples/variable.hedon" "09"
 filetest "examples/postpone.hedon" "9"
 error_filetest "examples/err.hedon" "unresolved drop trait word in main2"
+
+# linear logic
+error_filetest "examples/linear.hedon" "unmatch FileU.t type to File.t in write-file-illegal"

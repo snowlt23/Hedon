@@ -1,0 +1,20 @@
+: FileU.t newtype ;
+: File.t newtype ;
+: FileU FileU.t eff.apply ;
+: File File.t eff.apply ;
+
+: lent.eff a dup eff.drop b dup eff.drop Type.swap eff.push eff.push ;
+: lent trait ; !( lent.eff )
+
+: open-file ; !( -- FileU )
+: FileU.lent ; !( FileU -- FileU File ) impl> lent
+: File.dup ; !( File -- File File ) impl> dup
+: fwrite ; !( File -- )
+: FileU.drop ; !( FileU -- ) impl> drop
+
+: write-file
+  open-file lent fwrite drop
+;
+: write-file-illegal
+  open-file fwrite
+;
