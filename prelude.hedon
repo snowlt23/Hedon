@@ -22,6 +22,10 @@
 
 : IfAddr.t newtype ;
 : IfAddr IfAddr.t eff.apply ;
+: BeginAddr.t newtype ;
+: BeginAddr BeginAddr.t eff.apply ;
+: WhileAddr.t newtype ;
+: WhileAddr WhileAddr.t eff.apply ;
 
 : drop.eff a eff.drop ;
 : dup.eff a eff.dup ;
@@ -155,3 +159,50 @@ var if.out
   if.check
   fixup-to-chere
 ; immediate !( IfAddr )
+
+var while.in
+var while.out
+: while.save eff.save while.out ! while.in ! ; !( )
+: while.load while.in @ while.out @ eff.load ; !( )
+: begin
+  cp @
+; immediate !( -- BeginAddr )
+: while
+  Int.t eff.drop while.save
+  0x48 op 0x8b op 0x03 op
+  0x48 op 0x83 op 0xc3 op 0x08 op
+  0x48 op 0x83 op 0xf8 op 0x00 op
+  0x0f op 0x84 op
+  cp @
+  0 op-lendian32
+; immediate !( BeginAddr -- BeginAddr WhileAddr )
+: repeat
+  Int.swap
+  0xe9 op
+  op-from-chere
+  fixup-to-chere
+  while.load
+; immediate !( BeginAddr WhileAddr )
+
+: op-call
+  0x48 op 0x8b op 0x03 op
+  0x48 op 0x83 op 0xc3 op 0x08 op
+  0xff op 0xd0 op
+;
+: op-literal
+  0x48 op 0x83 op 0xeb op 0x08 op
+  0x48 op 0xb8 op
+  op-lendian64
+  0x48 op 0x89 op 0x03 op
+;
+
+: postpone-in
+  op-literal
+  op-call
+;
+
+: postpone
+  parse-token token search-word word-code op-literal
+  s" postpone-in" search-word word-code op-literal
+  op-call
+; immediate

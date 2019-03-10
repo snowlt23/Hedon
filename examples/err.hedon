@@ -1,5 +1,8 @@
-: open 1 0 ; ( -- Fixnum Err )
-: try drop ; ( Err )
+: FErr.t newtype ;
+: FErr FErr.t eff.apply ;
+: open 1 0 ; !( -- Int FErr )
+: Err.drop Int.drop ; !( FErr )
+: try Err.drop ;
 
 : main1 open try ; main1
 : main2 open drop ; main2
