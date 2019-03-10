@@ -96,7 +96,6 @@ TypeStack* g_out;
 size_t typeid;
 Type* typet;
 Type* intt;
-Type* ptrt;
 
 //
 // prototypes
@@ -520,6 +519,13 @@ defer_eff:
   }
 }
 
+void imm_apply_effects(Def* def) {
+  bool tmpstate = state;
+  state = false;
+  apply_effects(def);
+  state = tmpstate;
+}
+
 void add_int_effect() {
   if (writestate) return;
   Def* eff = search_def(&globaldefs, "Int");
@@ -915,7 +921,7 @@ void eval_token() {
   Def* def = search_def(&globaldefs, token);
   if (def != NULL) {
     if (def->immediate) {
-      apply_effects(def);
+      imm_apply_effects(def);
       call_word(def->wp);
     } else if (def->template) {
       expand_word(def);
@@ -936,7 +942,7 @@ void eval_token() {
       apply_effects(def);
       write_call_word((size_t)def->wp);
     } else {
-      apply_effects(def);
+      imm_apply_effects(def);
       call_word(def->wp);
     }
     return;
@@ -964,8 +970,6 @@ void eval_token() {
   BUILTIN_WORD("create", word_create, 0, {});
 
   // builtin for type def
-  // BUILTIN_WORD("typeid", word_typeid, 8, {ATYPE(intt)});
-  // BUILTIN_WORD("gentype", word_gentype, -8, {BTYPE(ptrt, intt); ATYPE(typet)});
   BUILTIN_WORD("builtin.Type.t", word_type, 8, {});
   BUILTIN_WORD("builtin.Int.t", word_int, 8, {});
   BUILTIN_WORD("builtin.newtype", word_newtype, 8, {});
@@ -1022,9 +1026,8 @@ void startup(size_t buffersize, size_t cpsize, size_t spsize, size_t dpsize) {
   g_in = init_typestack(8);
   g_out = init_typestack(8);
   typeid = 0;
-  typet = generate_type("Type");
-  intt = generate_type("Int");
-  ptrt = generate_type("Ptr");
+  typet = generate_type("Type.t");
+  intt = generate_type("Int.t");
 }
 
 void read_buffer(FILE* f) {

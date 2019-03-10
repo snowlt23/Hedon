@@ -143,15 +143,15 @@ var if.out
   0 op-lendian32
   Int.t eff.drop
   if.save 
-; immediate !( )
+; immediate !( -- IfAddr )
 : else
   if.in @ if.out @ if.save eff.load
   0xe9 op
   0 op-lendian32
   fixup-to-chere
   cp @ 4 -
-; immediate !( )
+; immediate !( IfAddr -- IfAddr )
 : then
   if.check
   fixup-to-chere
-; immediate !( )
+; immediate !( IfAddr )
