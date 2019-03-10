@@ -906,15 +906,15 @@ void word_cr() {
   printf("\n");
 }
 
-void word_add() {
-  size_t b = pop_x();
-  size_t a = pop_x();
-  push_x(a + b);
+void word_op() {
+  write_hex((uint8_t)pop_x());
+}
+
+size_t sub(size_t a, size_t b) {
+  return a - b;
 }
 void word_sub() {
-  size_t b = pop_x();
-  size_t a = pop_x();
-  push_x(a - b);
+  push_x((size_t)&sub);
 }
 
 void eval_token() {
@@ -998,10 +998,13 @@ void eval_token() {
   BUILTIN_WORD("builtin.cp", word_cp, 8, {OUT_EFF("Int")});
   BUILTIN_WORD(".", word_dot, -8, {IN_EFF("Int")});
   BUILTIN_WORD("cr", word_cr, 0, {});
+  BUILTIN_WORD("op", word_op, -8, {IN_EFF("Int")});
   BUILTIN_WORD("dump-tstack", word_dump_tstack, 0, {});
   BUILTIN_WORD("dump-type", word_dump_type, 0, {});
   BUILTIN_WORD("dump-effect", word_dump_effect, 0, {});
   BUILTIN_WORD("dump-code", word_dump_code, 0, {});
+
+  BUILTIN_WORD("builtin.c.sub", word_sub, 8, {OUT_EFF("Pointer")});
 
   error("undefined %s word.", token);
 }
@@ -1054,7 +1057,7 @@ void eval_file(FILE* f) {
 }
 
 int main(int argc, char** argv) {
-  startup(1024*1024, 1024*1024, 1024*10, 1024*10);
+  startup(1024*1024, 1024*1024, 1024*1024, 1024*1024);
 
   for (int i=1; i<argc; i++) {
     if (strcmp(argv[i], "-l") == 0) {

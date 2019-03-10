@@ -83,3 +83,6 @@ error_filetest "examples/err.hedon" "unresolved drop trait word in main2"
 
 # linear logic
 error_filetest "examples/linear.hedon" "unmatch FileU.t type to File.t in write-file-illegal"
+
+# cffi
+runtest ": main c.sub 1 2 c.call2 . ; main" "-1"

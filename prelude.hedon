@@ -90,7 +90,7 @@
 : var create 0 , ;
 : const create , does> @ ; !( Int )
 
-: op cp p@ c! 1 cp +! ;
+rem : op cp p@ c! 1 cp +! ;
 : ret 0xc3 op ; immediate
 : op-lendian32
   dup 0 shr 0xff band op
@@ -185,15 +185,15 @@ var while.out
 ; immediate !( BeginAddr WhileAddr )
 
 : op-call
-  0x48 op 0x8b op 0x03 op
+  0x4c op 0x8b op 0x03 op
   0x48 op 0x83 op 0xc3 op 0x08 op
-  0xff op 0xd0 op
+  0x41 op 0xff op 0xd0 op
 ;
 : op-literal
   0x48 op 0x83 op 0xeb op 0x08 op
-  0x48 op 0xb8 op
+  0x49 op 0xb8 op
   op-lendian64
-  0x48 op 0x89 op 0x03 op
+  0x4c op 0x89 op 0x03 op
 ;
 
 : postpone-in
@@ -206,3 +206,9 @@ var while.out
   s" postpone-in" search-word word-code op-literal
   op-call
 ; immediate
+
+: c.sub builtin.c.sub ;
+: c.call2
+  Int.t eff.drop Int.t eff.drop Pointer.t eff.drop Int.t eff.push
+  postpone >rsi postpone >rdi op-call postpone rax>
+; immediate !( )
