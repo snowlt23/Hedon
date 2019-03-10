@@ -62,6 +62,8 @@ runtest ": main 0 9 dp Int.pick3 drop p@ ! dp p@ @ . ; main" "9"
 runtest "0 dp p@ ! 45 dp p@ +! dp p@ @ ." "45"
 runtest "1 , 2 , 3 , dp@ cell p- @ ." "3"
 # runtest "9 const nine nine ." "9"
+runtest "var fz !( -- Pointer ) 555 fz ! fz @ ." "555"
+runtest "var aaa !( -- Pointer ) var bbb !( -- Pointer ) 123 aaa ! 456 bbb ! aaa @ . bbb @ ." "123456"
 runtest "4 . 5 . 0 exit 6 ." "45"
 runtest ": main 9 . ; dump-type main" " -- "
 
@@ -77,7 +79,7 @@ runtest ": main 0 begin dup 10 - while dup . 1 + repeat ; main" "0123456789"
 
 errortest ": main ; drop" "unresolved drop trait word in main"
 error_filetest "examples/basic-type.hedon" "unmatch MyInt type to Int.t in mi"
-filetest "examples/variable.hedon" "09"
+# filetest "examples/variable.hedon" "09"
 filetest "examples/postpone.hedon" "9"
 error_filetest "examples/err.hedon" "unresolved drop trait word in main2"
 
@@ -85,4 +87,6 @@ error_filetest "examples/err.hedon" "unresolved drop trait word in main2"
 error_filetest "examples/linear.hedon" "unmatch FileU.t type to File.t in write-file-illegal"
 
 # cffi
-runtest ": main c.sub 1 2 c.call2 . ; main" "-1"
+runtest ": main 1 2 c.sub c.call2 . ; main" "-1"
+runtest ": main 1 2 3 4 5 6 ccc.call6 c.call6 . ; main" "-19"
+filetest "examples/dl.hedon" "555"

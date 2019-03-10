@@ -39,8 +39,13 @@
 : >rax X 0x48 X 0x8b X 0x03 Int.drop ;
 : >rbx X 0x48 X 0x8b X 0x1b Int.drop ;
 : >rcx X 0x48 X 0x8b X 0x0b Int.drop ;
+: >rdx X 0x48 X 0x8b X 0x13 Int.drop ;
 : >rdi X 0x48 X 0x8b X 0x3b Int.drop ;
 : >rsi X 0x48 X 0x8b X 0x33 Int.drop ;
+: >r8 X 0x4c X 0x8b X 0x03 Int.drop ;
+: >r9 X 0x4c X 0x8b X 0x0b Int.drop ;
+: >r10 X 0x4c X 0x8b X 0x13 Int.drop ;
+: >r11 X 0x4c X 0x8b X 0x1b Int.drop ;
 : rax> grow X 0x48 X 0x89 X 0x03 ;
 : rbx> grow X 0x48 X 0x89 X 0x1b ;
 : rcx> grow X 0x48 X 0x89 X 0x0b ;
@@ -79,6 +84,14 @@
   Int.t eff.push eff.push eff.push Int.t eff.push
 ;
 : Int.pick3 sp@ cell cell + cell + p+ @ ; !( Int.pick3.eff )
+: Int.pick4.eff
+  a dup eff.drop
+  b dup eff.drop
+  c dup eff.drop
+  Int.t eff.drop
+  Int.t eff.push eff.push eff.push eff.push Int.t eff.push
+;
+: Int.pick4 sp@ cell cell + cell + cell + p+ @ ; !( Int.pick4.eff )
 : +! dup @ Int.pick3 + Pointer.Int.swap ! Int.drop ;
 
 : dp builtin.dp ; !( -- Pointer )
@@ -133,8 +146,10 @@ rem syscalls
 : syscall2 >rax >rdi >rsi op-syscall ;
 : exit 60 syscall1 ;
 
-var if.in
-var if.out
+: p. . ; !( Pointer )
+
+var if.in !( -- Pointer )
+var if.out !( -- Pointer )
 : if.save eff.save if.out ! if.in ! ; !( )
 : if.load if.in @ if.out @ eff.load ; !( )
 : if.check if.in @ if.out @ eff.save eff.check ; !( )
@@ -160,8 +175,8 @@ var if.out
   fixup-to-chere
 ; immediate !( IfAddr )
 
-var while.in
-var while.out
+var while.in !( -- Pointer )
+var while.out !( -- Pointer )
 : while.save eff.save while.out ! while.in ! ; !( )
 : while.load while.in @ while.out @ eff.load ; !( )
 : begin
@@ -184,16 +199,20 @@ var while.out
   while.load
 ; immediate !( BeginAddr WhileAddr )
 
+: op-r8-call 0x41 op 0xff op 0xd0 op ;
+: op-r9-call 0x41 op 0xff op 0xd1 op ;
+: op-r10-call 0x41 op 0xff op 0xd2 op ;
+: op-r11-call 0x41 op 0xff op 0xd3 op ;
 : op-call
-  0x4c op 0x8b op 0x03 op
+  0x4c op 0x8b op 0x13 op
   0x48 op 0x83 op 0xc3 op 0x08 op
-  0x41 op 0xff op 0xd0 op
+  op-r10-call
 ;
 : op-literal
   0x48 op 0x83 op 0xeb op 0x08 op
-  0x49 op 0xb8 op
+  0x49 op 0xba op
   op-lendian64
-  0x4c op 0x89 op 0x03 op
+  0x4c op 0x89 op 0x13 op
 ;
 
 : postpone-in
@@ -207,8 +226,44 @@ var while.out
   op-call
 ; immediate
 
+: spill-rbx 0x53 op ;
+: restore-rbx 0x5b op ;
 : c.sub builtin.c.sub ;
-: c.call2
-  Int.t eff.drop Int.t eff.drop Pointer.t eff.drop Int.t eff.push
-  postpone >rsi postpone >rdi op-call postpone rax>
+: ccc.call6 builtin.c.call6 ;
+: c.call0
+  Pointer.t eff.drop Int.t eff.push
+  postpone >r11
+  spill-rbx
+  op-r11-call
+  restore-rbx
+  postpone rax>
 ; immediate !( )
+: c.call1
+  Pointer.t eff.drop Int.t eff.drop Int.t eff.push
+  postpone >r11 postpone >rdi
+  spill-rbx
+  op-r11-call
+  restore-rbx
+  postpone rax>
+; immediate !( )
+: c.call2
+  Pointer.t eff.drop Int.t eff.drop Int.t eff.drop Int.t eff.push
+  postpone >r11 postpone >rsi postpone >rdi
+  spill-rbx
+  op-r11-call
+  restore-rbx
+  postpone rax>
+; immediate !( )
+: c.call6
+  Pointer.t eff.drop Int.t eff.drop Int.t eff.drop Int.t eff.drop Int.t eff.drop Int.t eff.drop Int.t eff.drop Int.t eff.push
+  postpone >r11 postpone >r9 postpone >r8 postpone >rcx postpone >rdx postpone >rsi postpone >rdi
+  spill-rbx
+  op-r11-call
+  restore-rbx
+  postpone rax>
+; immediate !( )
+: rtld-lazy 1 ;
+: rtld-now 2 ;
+: dlopen builtin.c.dlopen c.call2 ;
+: dlsym builtin.c.dlsym c.call2 ;
+: dlclose builtin.c.dlclose c.call1 ;

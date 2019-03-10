@@ -377,8 +377,8 @@ size_t* write_x(size_t x) {
 }
 
 void write_call_word(size_t wp) {
-  write_hex(0x49, 0xb8); write_qword(wp); // movabs r8, wp
-  write_hex(0x41, 0xff, 0xd0); // call r8
+  write_hex(0x49, 0xba); write_qword(wp); // movabs r10, wp
+  write_hex(0x41, 0xff, 0xd2); // call r10
 }
 
 void expand_word(Def* def) {
@@ -735,13 +735,12 @@ void word_create() {
   parse_token();
   Def* def = init_def();
   add_def(&globaldefs, def);
-  OUT_EFF("Pointer"); 
   strcpy(def->name, token);
   def->wp = cp;
   def->codesize = (size_t)cp;
   write_x((size_t)dp);
   write_hex(0xc3); // ret
-  def->codesize = (size_t)cp - def->codesize;
+  def->codesize = def->codesize - (size_t)cp;
 }
 
 void word_does_in() {
@@ -862,6 +861,8 @@ void word_strlit() {
     *dp = c;
     dp++;
   }
+  *dp = '\0';
+  dp++;
   write_x(p);
 }
 
@@ -902,6 +903,11 @@ void word_dot() {
   printf("%zd", x);
   fflush(stdout);
 }
+void word_sdot() {
+  char* x = (char*)pop_x();
+  printf("%s", x);
+  fflush(stdout);
+}
 void word_cr() {
   printf("\n");
 }
@@ -910,6 +916,37 @@ void word_op() {
   write_hex((uint8_t)pop_x());
 }
 
+void* dlopen_x(char* libname, size_t flag) {
+  fprintf(stderr, "dlopen %s %zd\n", libname, flag);
+  void* h = dlopen(libname, flag);
+  if (h == NULL) error("aaa");
+  fprintf(stderr, "dlshared %p\n", h);
+  return h;
+}
+void* dlsym_x(void* h, char* symname) {
+  fprintf(stderr, "dlsym %p %s\n", h, symname);
+  void* s = dlsym(h, symname);
+  if (s == NULL) error("aaa dlsym");
+  return s;
+}
+
+void word_dlopen() {
+  push_x((size_t)&dlopen_x);
+}
+void word_dlsym() {
+  push_x((size_t)&dlsym_x);
+}
+void word_dlclose() {
+  push_x((size_t)&dlclose);
+}
+
+size_t call6(size_t a, size_t b, size_t c, size_t d, size_t e, size_t f) {
+  // fprintf(stderr, "%zd %zd %zd %zd %zd %zd\n", a, b, c, d, e, f);
+  return a - b - c - d - e - f;
+}
+void word_call6() {
+  push_x((size_t)&call6);
+}
 size_t sub(size_t a, size_t b) {
   return a - b;
 }
@@ -997,6 +1034,7 @@ void eval_token() {
   BUILTIN_WORD("builtin.dp", word_dp, 8, {OUT_EFF("Int")});
   BUILTIN_WORD("builtin.cp", word_cp, 8, {OUT_EFF("Int")});
   BUILTIN_WORD(".", word_dot, -8, {IN_EFF("Int")});
+  BUILTIN_WORD("s.", word_sdot, -8, {IN_EFF("Int")});
   BUILTIN_WORD("cr", word_cr, 0, {});
   BUILTIN_WORD("op", word_op, -8, {IN_EFF("Int")});
   BUILTIN_WORD("dump-tstack", word_dump_tstack, 0, {});
@@ -1004,7 +1042,11 @@ void eval_token() {
   BUILTIN_WORD("dump-effect", word_dump_effect, 0, {});
   BUILTIN_WORD("dump-code", word_dump_code, 0, {});
 
+  BUILTIN_WORD("builtin.c.dlopen", word_dlopen, 8, {OUT_EFF("Pointer")});
+  BUILTIN_WORD("builtin.c.dlsym", word_dlsym, 8, {OUT_EFF("Pointer")});
+  BUILTIN_WORD("builtin.c.dlclose", word_dlclose, 8, {OUT_EFF("Pointer")});
   BUILTIN_WORD("builtin.c.sub", word_sub, 8, {OUT_EFF("Pointer")});
+  BUILTIN_WORD("builtin.c.call6", word_call6, 8, {OUT_EFF("Pointer")});
 
   error("undefined %s word.", token);
 }
