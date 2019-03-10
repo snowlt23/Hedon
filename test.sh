@@ -68,6 +68,8 @@ runtest ": main 0 if 4 . then 1 if 5 . then ; main" "5"
 runtest ": main 0 if 4 . then 1 if 5 . then ; dump-type main" " -- "
 runtest ": main 1 if 4 . else 5 . then 0 if 4 . else 5 . then ; main" "45"
 runtest ": main 0 if 4 else 5 then ; dump-type main main ." " -- Int5"
+errortest ": main 1 if 4 else then ; main" "Int <->  unmatch out-effect in main"
+errortest ": main 1 if . else then ; main" "Int <->  unmatch in-effect in main"
 # runtest ": main 0 begin dup 10 - while dup . 1 + repeat ; main" "0123456789"
 
 errortest ": main ; drop" "unresolved drop trait word in main"

@@ -10,6 +10,7 @@
 : eff.apply builtin.eff.apply ; !( Type -- )
 : eff.save builtin.eff.save ; !( -- EffSave )
 : eff.load builtin.eff.load ; !( EffSave -- )
+: eff.check builtin.eff.check ; !( EffSave EffSave -- )
 
 : Int.t builtin.Int.t ; !( -- Type )
 : Int Int.t eff.apply ;
@@ -128,6 +129,11 @@ rem syscalls
 : syscall2 >rax >rdi >rsi op-syscall ;
 : exit 60 syscall1 ;
 
+var if.in
+var if.out
+: if.save eff.save if.out ! if.in ! ; !( )
+: if.load if.in @ if.out @ eff.load ; !( )
+: if.check if.in @ if.out @ eff.save eff.check ; !( )
 : if
   0x48 op 0x8b op 0x03 op
   0x48 op 0x83 op 0xc3 op 0x08 op
@@ -135,17 +141,17 @@ rem syscalls
   0x0f op 0x84 op
   cp @
   0 op-lendian32
-  Int.t eff.drop eff.save
+  Int.t eff.drop
+  if.save 
 ; immediate !( )
 : else
-  eff.load
+  if.in @ if.out @ if.save eff.load
   0xe9 op
   0 op-lendian32
   fixup-to-chere
   cp @ 4 -
-  eff.save
 ; immediate !( )
 : then
-  Int.drop Int.drop
+  if.check
   fixup-to-chere
 ; immediate !( )

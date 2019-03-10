@@ -19,13 +19,13 @@
 #define error(...) {fprintf(stderr, __VA_ARGS__); fprintf(stderr, " in %s", last_def(globaldefs)->name); exit(1);}
 
 #define spill_globaltype \
-  TypeStack tmpb = g_before; \
-  TypeStack tmpa = g_after; \
-  g_before = init_typestack(8); \
-  g_after = init_typestack(8);
+  TypeStack* tmpb = g_in; \
+  TypeStack* tmpa = g_out; \
+  g_in = init_typestack(8); \
+  g_out = init_typestack(8);
 #define restore_globaltype \
-  g_before = tmpb; \
-  g_after = tmpa;
+  g_in = tmpb; \
+  g_out = tmpa;
 
 #define WORDSIZE 8
 
@@ -44,7 +44,7 @@ typedef struct _Type {
   TypeKind kind;
   char* name;
   size_t id;
-  TypeStack params;
+  TypeStack* params;
 } Type;
 
 typedef struct {
@@ -62,8 +62,8 @@ typedef struct {
   size_t count;
 } Effs;
 typedef struct {
-  TypeStack before;
-  TypeStack after;
+  TypeStack* in;
+  TypeStack* out;
 } EffFreeze;
 typedef struct _Def {
   char name[256];
@@ -89,10 +89,10 @@ bool tapplystate;
 Defs globaldefs;
 Defs localdefs;
 
-TypeStack i_before;
-TypeStack i_after;
-TypeStack g_before;
-TypeStack g_after;
+TypeStack* i_in;
+TypeStack* i_out;
+TypeStack* g_in;
+TypeStack* g_out;
 size_t typeid;
 Type* typet;
 Type* intt;
@@ -114,7 +114,7 @@ Type* init_type(char* name, size_t id) {
   t->kind = TYPE_SINGLE;
   t->name = name;
   t->id = id;
-  t->params.data = NULL;
+  t->params = NULL;
   return t;
 }
 
@@ -133,43 +133,51 @@ bool eqtype(Type* a, Type* b) {
   if (a->kind == TYPE_PARAM) return true;
   if (b->kind == TYPE_PARAM) return true;
   if (a->kind == TYPE_UNION) {
-    for (int i=0; i<a->params.count; i++) {
-      if (eqtype(a->params.data[i], b)) return true;
+    for (int i=0; i<a->params->count; i++) {
+      if (eqtype(a->params->data[i], b)) return true;
     }
   }
   return false;
 }
 
-TypeStack init_typestack(size_t cap) {
-  TypeStack ls;
-  ls.data = malloc(sizeof(Type*)*cap);
-  ls.cap = cap;
-  ls.count = 0;
+TypeStack* init_typestack(size_t cap) {
+  TypeStack* ls = malloc(sizeof(TypeStack));
+  ls->data = malloc(sizeof(Type*)*cap);
+  ls->cap = cap;
+  ls->count = 0;
   return ls;
 }
 
-TypeStack dup_typestack(TypeStack ts) {
-  TypeStack newts = init_typestack(ts.cap);
-  memcpy(newts.data, ts.data, sizeof(Type*)*ts.count);
-  newts.count = ts.count;
+bool eq_typestack(TypeStack* a, TypeStack* b) {
+  if (a->count != b->count) return false;
+  for (int i=0; i<a->count; i++) {
+    if (!eqtype(a->data[i], b->data[i])) return false;
+  }
+  return true;
+}
+
+TypeStack* dup_typestack(TypeStack* ts) {
+  TypeStack* newts = init_typestack(ts->cap);
+  memcpy(newts->data, ts->data, sizeof(Type*)*ts->count);
+  newts->count = ts->count;
   return newts;
 }
 
-TypeStack rev_typestack(TypeStack ts) {
-  TypeStack newts = dup_typestack(ts);
-  for (int i=0; i<ts.count; i++) {
-    newts.data[i] = ts.data[ts.count-i-1];
+TypeStack* rev_typestack(TypeStack* ts) {
+  TypeStack* newts = dup_typestack(ts);
+  for (int i=0; i<ts->count; i++) {
+    newts->data[i] = ts->data[ts->count-i-1];
   }
   return newts;
 }
 
-void dump_typestack(FILE* f, TypeStack ts) {
-  if (ts.count != 0) {
-    Type* l = ts.data[0];
+void dump_typestack(FILE* f, TypeStack* ts) {
+  if (ts->count != 0) {
+    Type* l = ts->data[0];
     fprintf(f, "%s", l->name);
   }
-  for (int i=1; i<ts.count; i++) {
-    Type* l = ts.data[i];
+  for (int i=1; i<ts->count; i++) {
+    Type* l = ts->data[i];
     fprintf(f, " %s", l->name);
   }
 }
@@ -239,16 +247,16 @@ void add_eff(Effs* effs, Eff eff) {
 // Freeze
 //
 
-EffFreeze* freeze(TypeStack b, TypeStack a) {
+EffFreeze* freeze(TypeStack* b, TypeStack* a) {
   EffFreeze* fr = malloc(sizeof(EffFreeze));
-  fr->before = rev_typestack(b);
-  fr->after = dup_typestack(a);
+  fr->in = rev_typestack(b);
+  fr->out = dup_typestack(a);
   return fr;
 }
 
-bool can_freeze(TypeStack ts) {
-  for (int i=0; i<ts.count; i++) {
-    if (ts.data[i]->kind != TYPE_SINGLE) return false;
+bool can_freeze(TypeStack* ts) {
+  for (int i=0; i<ts->count; i++) {
+    if (ts->data[i]->kind != TYPE_SINGLE) return false;
   }
   return true;
 }
@@ -390,33 +398,33 @@ void expand_word(Def* def) {
 //
 
 void imm_push_type(Type* l) {
-  push_type(&i_after, l);
+  push_type(i_out, l);
 }
 
 void global_push_type(Type* l) {
-  if (state) push_type(&g_after, l);
+  if (state) push_type(g_out, l);
   else imm_push_type(l);
 }
 
 bool imm_pop_type(Type* l) {
-  if (i_after.count == 0) {
+  if (i_out->count == 0) {
     // if stack is empty at global state
     error("stack is empty, but expected %s value", l->name);
   }
-  Type* sl = pop_type(&i_after);
+  Type* sl = pop_type(i_out);
   if (!eqtype(l, sl)) error("unmatch %s type to %s", sl->name, l->name);
   return false;
 }
 bool global_pop_type(Type* l) {
   if (state) {
-    if (g_after.count == 0) {
+    if (g_out->count == 0) {
       // pop_type for word argument.
       // TODO: if uniontype,
-      push_type(&g_before, l);
+      push_type(g_in, l);
       return true;
     }
     // consume current stack type.
-    Type* sl = pop_type(&g_after);
+    Type* sl = pop_type(g_out);
     if (!eqtype(l, sl)) error("unmatch %s type to %s", sl->name, l->name);
     if (l->kind == TYPE_PARAM) *l = *sl;
     if (sl->kind == TYPE_PARAM) *sl = *l;
@@ -426,23 +434,23 @@ bool global_pop_type(Type* l) {
   }
 }
 
-void apply_before(TypeStack before) {
-  for (int i=0; i<before.count; i++) {
-    global_pop_type(before.data[before.count-i-1]);
+void apply_in(TypeStack* in) {
+  for (int i=0; i<in->count; i++) {
+    global_pop_type(in->data[in->count-i-1]);
   }
 }
 
-void apply_after(TypeStack after) {
-  for (int i=0; i<after.count; i++) {
-    global_push_type(after.data[i]);
+void apply_out(TypeStack* out) {
+  for (int i=0; i<out->count; i++) {
+    global_push_type(out->data[i]);
   }
 }
 
-bool eq_before(TypeStack a, TypeStack before) {
-  if (a.count < before.count) return false;
-  for (int i=0; i<before.count; i++) {
-    Type* l = a.data[a.count-i-1];
-    Type* r = before.data[i];
+bool eq_in(TypeStack* a, TypeStack* in) {
+  if (a->count < in->count) return false;
+  for (int i=0; i<in->count; i++) {
+    Type* l = a->data[a->count-i-1];
+    Type* r = in->data[i];
     if (l->id == r->id) return true;
   }
   return false;
@@ -486,7 +494,7 @@ Def* solve_trait_word(Defs defs) {
   for (int i=0; i<defs.count; i++) {
     Def* def = defs.data[i];
     if (def->freeze == NULL) error("%s impl isn't freezing", def->name);
-    if (eq_before(g_after, def->freeze->before)) return def;
+    if (eq_in(g_out, def->freeze->in)) return def;
   }
   return NULL;
 }
@@ -494,8 +502,8 @@ Def* solve_trait_word(Defs defs) {
 void apply_effects(Def* def) {
   Def* wdef = last_def(globaldefs);
   if (def->freeze != NULL) {
-    apply_before(def->freeze->before);
-    apply_after(def->freeze->after);
+    apply_in(def->freeze->in);
+    apply_out(def->freeze->out);
     goto defer_eff;
   }
   for (int i=0; i<def->effects.count; i++) {
@@ -576,11 +584,11 @@ void word_def() {
     if (strlen(token) == 0) error("require end of definition.");
     eval_token();
   }
-  if (can_freeze(g_before) && can_freeze(g_after)) def->freeze = freeze(g_before, g_after);
+  if (can_freeze(g_in) && can_freeze(g_out)) def->freeze = freeze(g_in, g_out);
 
   // store inferred typestack for write
-  g_after = rev_typestack(g_before);
-  g_before = init_typestack(8);
+  g_out = rev_typestack(g_in);
+  g_in = init_typestack(8);
 
   // write with inferred type
   buffer = def->bufferaddr;
@@ -636,7 +644,7 @@ void word_is() {
   Type* ut = (Type*)pop_x();
   Type* t = (Type*)pop_x();
   if (ut->kind != TYPE_UNION) error("%s type isn't union", ut->name);
-  push_type(&ut->params, t);
+  push_type(ut->params, t);
 }
 
 void word_eff_apply() {
@@ -663,14 +671,32 @@ void word_eff_dup() {
 }
 
 void word_eff_save() {
-  push_x(g_before.count);
-  push_x(g_after.count);
+  push_x((size_t)dup_typestack(g_in));
+  push_x((size_t)dup_typestack(g_out));
 }
 void word_eff_load() {
-  size_t ac = pop_x();
-  size_t bc = pop_x();
-  g_before.count = bc;
-  g_after.count = ac;
+  TypeStack* out = (TypeStack*)pop_x();
+  TypeStack* in = (TypeStack*)pop_x();
+  g_in = dup_typestack(in);
+  g_out = dup_typestack(out);
+}
+void word_eff_check() {
+  TypeStack* rout = (TypeStack*)pop_x();
+  TypeStack* rin = (TypeStack*)pop_x();
+  TypeStack* iout = (TypeStack*)pop_x();
+  TypeStack* iin = (TypeStack*)pop_x();
+  if (!eq_typestack(iin, rin)) {
+    dump_typestack(stderr, iin);
+    fprintf(stderr, " <-> ");
+    dump_typestack(stderr, rin);
+    error(" unmatch in-effect");
+  }
+  if (!eq_typestack(iout, rout)) {
+    dump_typestack(stderr, iout);
+    fprintf(stderr, " <-> ");
+    dump_typestack(stderr, rout);
+    error(" unmatch out-effect");
+  }
 }
 
 void word_immediate() {
@@ -767,15 +793,15 @@ defer_inout:
   spill_globaltype;
   state = true;
   apply_effects(def);
-  if (can_freeze(g_before) && can_freeze(g_after)) def->freeze = freeze(g_before, g_after);
+  if (can_freeze(g_in) && can_freeze(g_out)) def->freeze = freeze(g_in, g_out);
   state = false;
   restore_globaltype;
 }
 
 void word_dump_tstack() {
-  dump_typestack(stdout, rev_typestack(g_before));
+  dump_typestack(stdout, rev_typestack(g_in));
   printf(" -- ");
-  dump_typestack(stdout, g_after);
+  dump_typestack(stdout, g_out);
 }
 
 void word_dump_type() {
@@ -783,16 +809,16 @@ void word_dump_type() {
   Def* def = search_def(&globaldefs, token);
   if (def == NULL) error("undefined %s word in dump-type", token);
   if (def->freeze != NULL) {
-    dump_typestack(stdout, def->freeze->before);
+    dump_typestack(stdout, def->freeze->in);
     printf(" -- ");
-    dump_typestack(stdout, def->freeze->after);
+    dump_typestack(stdout, def->freeze->out);
   } else {
     spill_globaltype;
     state = true;
     apply_effects(def);
-    dump_typestack(stdout, rev_typestack(g_before));
+    dump_typestack(stdout, rev_typestack(g_in));
     printf(" -- ");
-    dump_typestack(stdout, g_after);
+    dump_typestack(stdout, g_out);
     state = false;
     restore_globaltype;
   }
@@ -954,6 +980,7 @@ void eval_token() {
   BUILTIN_WORD("builtin.eff.apply", word_eff_apply, -8, {});
   BUILTIN_WORD("builtin.eff.save", word_eff_save, 16, {});
   BUILTIN_WORD("builtin.eff.load", word_eff_load, -16, {});
+  BUILTIN_WORD("builtin.eff.check", word_eff_check, -32, {});
 
   // builtin words
   BUILTIN_IMM_WORD("does>", word_does);
@@ -990,10 +1017,10 @@ void startup(size_t buffersize, size_t cpsize, size_t spsize, size_t dpsize) {
   globaldefs = init_defs(1024);
   localdefs = init_defs(1024);
 
-  i_before = init_typestack(8);
-  i_after = init_typestack(8);
-  g_before = init_typestack(8);
-  g_after = init_typestack(8);
+  i_in = init_typestack(8);
+  i_out = init_typestack(8);
+  g_in = init_typestack(8);
+  g_out = init_typestack(8);
   typeid = 0;
   typet = generate_type("Type");
   intt = generate_type("Int");
