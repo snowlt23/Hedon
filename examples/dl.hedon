@@ -3,7 +3,7 @@ var sdl.get-error.ptr !( -- Pointer )
 var sdl.init.ptr !( -- Pointer )
 var sdl.create-window.ptr !( -- Pointer )
 
-: sdl.open-shared s" SDL2.so" rtld-lazy dlopen sdl.shared ! ;
+: sdl.open-shared s" ./libSDL2.so" rtld-lazy dlopen sdl.shared ! ;
 rem : sdl.check-sym @ if else 8585 . cr 1 exit then ;
 : sdl.load-sym sdl.shared @ Int.swap dlsym Pointer.Int.swap ! ;
 : sdl.init-shared

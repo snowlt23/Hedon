@@ -1,7 +1,7 @@
 build: hedon ;
 
-hedon: hedon.c
-	gcc -o hedon -ldl hedon.c
+hedon: ffi.s hedon.c
+	gcc -Wall -o hedon -ldl ffi.s hedon.c
 
 test: build
 	./test.sh

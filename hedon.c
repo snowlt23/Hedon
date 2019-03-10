@@ -101,6 +101,8 @@ Type* intt;
 // prototypes
 //
 
+void call_word_asm(uint8_t** spp, uint8_t* wp);
+
 void parse_token();
 void eval_token();
 
@@ -326,6 +328,9 @@ void write_to_cp(uint8_t* buf, size_t n) {
 #define write_hex(...) write_hex1(__LINE__, __VA_ARGS__)
 
 #define inasm(a, ...) asm volatile(".intel_syntax noprefix;" a "; .att_syntax;" : __VA_ARGS__)
+#define spill_regs "push rax; push rbx; push rcx; push rdx; push rsi; push rdi; push r8; push r9; push r10; push r11; push r12; push r13; push r14; push r15;"
+#define restore_regs "pop r15; pop r14; pop r13; pop r12; pop r11; pop r10; pop r9; pop r8; pop rdi; pop rsi; pop rdx; pop rcx; pop rbx; pop rax;"
+#define allregs "rax", "rbx", "rcx", "rdx", "rsi", "rdi", "r8", "r9", "r10", "r11", "r12"
 
 #define take_byte(x, n) ((x >> (8*n)) & 0xff)
 
@@ -352,9 +357,7 @@ size_t pop_x() {
 }
 
 void call_word(uint8_t* wp) {
-  uint8_t* rbx;
-  inasm("mov rbx, %1; mov rax, %2; call rax; mov %0, rbx;", "=r"(rbx) : "r"(sp), "r"(wp) : "rbx");
-  sp = rbx;
+  call_word_asm(&sp, wp);
 }
 
 void write_call_builtin(void* p) {
@@ -955,6 +958,7 @@ void word_sub() {
 }
 
 void eval_token() {
+  // fprintf(stderr, "%s ", token);
   Def* def = search_def(&globaldefs, token);
   if (def != NULL) {
     if (def->immediate) {
@@ -1083,6 +1087,7 @@ void read_buffer(FILE* f) {
     *buffer = c;
     buffer++;
   }
+  *buffer = '\0';
   buffer = bufferstart;
 }
 

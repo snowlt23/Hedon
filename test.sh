@@ -1,7 +1,7 @@
 #!/bin/sh
 
 runtest() {
-  OUT=$(echo "$(cat prelude.hedon) $1" | ./hedon)
+  OUT=$(echo "$1" | ./hedon -l prelude.hedon)
   echo "[TEST] $1"
   if [ "$OUT" != "$2" ] ; then
     echo "[ERROR] $1    expect $2, but got $OUT"
@@ -19,7 +19,7 @@ filetest() {
 }
 
 errortest() {
-  ERR=$(echo "$(cat prelude.hedon) $1" | ./hedon 2>&1)
+  ERR=$(echo "$1" | ./hedon -l prelude.hedon 2>&1)
   echo "[TEST] $1"
   if [ "$ERR" != "$2" ] ; then
     echo "[ERROR] $1    expect \"$2\" error, but got \"$ERR\""
