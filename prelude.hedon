@@ -226,40 +226,29 @@ var while.out !( -- Pointer )
   op-call
 ; immediate
 
-: spill-rbx 0x53 op ;
-: restore-rbx 0x5b op ;
 : c.sub builtin.c.sub ;
 : ccc.call6 builtin.c.call6 ;
 : c.call0
   Pointer.t eff.drop Int.t eff.push
   postpone >r11
-  spill-rbx
   op-r11-call
-  restore-rbx
   postpone rax>
 ; immediate !( )
 : c.call1
   Pointer.t eff.drop Int.t eff.drop Int.t eff.push
   postpone >r11 postpone >rdi
-  spill-rbx
-  op-r11-call
-  restore-rbx
   postpone rax>
 ; immediate !( )
 : c.call2
   Pointer.t eff.drop Int.t eff.drop Int.t eff.drop Int.t eff.push
   postpone >r11 postpone >rsi postpone >rdi
-  spill-rbx
   op-r11-call
-  restore-rbx
   postpone rax>
 ; immediate !( )
 : c.call6
   Pointer.t eff.drop Int.t eff.drop Int.t eff.drop Int.t eff.drop Int.t eff.drop Int.t eff.drop Int.t eff.drop Int.t eff.push
   postpone >r11 postpone >r9 postpone >r8 postpone >rcx postpone >rdx postpone >rsi postpone >rdi
-  spill-rbx
   op-r11-call
-  restore-rbx
   postpone rax>
 ; immediate !( )
 : rtld-lazy 1 ;

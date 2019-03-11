@@ -3,35 +3,27 @@
 // rdi=&sp rsi=wp
 .global call_word_asm
 call_word_asm:
+  push rsp
   push rbx
-  push rax
-  push rcx
-  push rdx
-  push rsi
   push rdi
-  push r8
-  push r9
-  push r10
-  push r11
-  push r12
-  push r13
-  push r14
-  push r15
   mov rbx, [rdi]
+align_stack:
+  mov rax, rsp
+  mov rcx, 16
+  mov rdx, 0
+  div rcx
+  cmp rdx, 0
+  je align_f
+align_t:
   call rsi
-  pop r15
-  pop r14
-  pop r13
-  pop r12
-  pop r11
-  pop r10
-  pop r9
-  pop r8
+  jmp align_e
+align_f:
+  sub rsp, 8
+  call rsi
+  add rsp, 8
+align_e:
   pop rdi
-  pop rsi
-  pop rdx
-  pop rcx
-  pop rax
   mov [rdi], rbx
   pop rbx
+  pop rsp
   ret
