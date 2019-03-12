@@ -1,17 +1,17 @@
-: FileU.t newtype ;
-: File.t newtype ;
-: FileU FileU.t eff.apply ;
-: File File.t eff.apply ;
+: l.FileU.t newtype ;
+: l.File.t newtype ;
+: l.FileU FileU.t eff.apply ;
+: l.File File.t eff.apply ;
 
-: open-file ; !( -- FileU )
-: FileU.lent ; !( FileU -- FileU File ) impl> lent
-: File.dup ; !( File -- File File ) impl> dup
-: fwrite ; !( File -- )
-: FileU.drop ; !( FileU -- ) impl> drop
+: l.open-file ; !( -- FileU )
+: l.FileU.lent ; !( FileU -- FileU File ) impl> lent
+: l.File.dup ; !( File -- File File ) impl> dup
+: l.fwrite ; !( File -- )
+: l.FileU.drop ; !( FileU -- ) impl> drop
 
 : write-file
-  open-file lent fwrite drop
+  l.open-file lent l.fwrite drop
 ;
 : write-file-illegal
-  open-file fwrite
+  l.open-file l.fwrite
 ;

@@ -8,6 +8,15 @@ runtest() {
     exit 1
   fi
 }
+exittest() {
+  OUT=$(echo "$1" | ./hedon -l prelude.hedon)
+  RET=$?
+  echo "[TEST] $1"
+  if [ "$RET" != "$2" ] ; then
+    echo "[ERROR] $1    expect $2, but got $RET"
+    exit 1
+  fi
+}
 
 filetest() {
   OUT=$(./hedon -l prelude.hedon -l $1 -c)
@@ -65,7 +74,7 @@ runtest "1 , 2 , 3 , dp@ cell p- @ ." "3"
 # runtest "9 const nine nine ." "9"
 runtest "var fz !( -- Pointer ) 555 fz ! fz @ ." "555"
 runtest "var aaa !( -- Pointer ) var bbb !( -- Pointer ) 123 aaa ! 456 bbb ! aaa @ . bbb @ ." "123456"
-runtest "4 . 5 . 0 exit 6 ." "45"
+exittest "4 . 5 . 23 exit 6 ." "23"
 runtest ": main 9 . ; dump-type main" " -- "
 
 # control flow
@@ -73,6 +82,7 @@ runtest ": main 0 if 4 . then 1 if 5 . then ; main" "5"
 runtest ": main 0 if 4 . then 1 if 5 . then ; dump-type main" " -- "
 runtest ": main 1 if 4 . else 5 . then 0 if 4 . else 5 . then ; main" "45"
 runtest ": main 0 if 4 else 5 then ; dump-type main main ." " -- Int.t5"
+runtest ": main 0 if 4 else 5 then . 6 . ; main" "56"
 errortest ": main 1 if 4 else then ; main" "Int.t <->  unmatch out-effect in main"
 errortest ": main 1 if . else then ; main" "Int.t <->  unmatch in-effect in main"
 errortest "0 : main 1 then ; main" "unmatch Int.t type to IfAddr.t in main"
@@ -92,3 +102,6 @@ runtest ": main 9 test.call1 c.call1 . ; main" "9"
 runtest ": main 1 2 test.call2 c.call2 . ; main" "-1"
 runtest ": main 1 2 3 4 5 6 test.call6 c.call6 . ; main" "-19"
 # filetest "examples/dl.hedon" "555"
+
+# file
+# runtest ": main s\" ./test.txt\" r/o open-file ; main"

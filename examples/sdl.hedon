@@ -4,6 +4,17 @@ var sdl.init.ptr !( -- Pointer )
 var sdl.poll-event.ptr !( -- Pointer )
 var sdl.quit.ptr !( -- Pointer )
 var sdl.create-window.ptr !( -- Pointer )
+var sdl.destroy-window.ptr !( -- Pointer )
+var sdl.create-renderer.ptr !( -- Pointer )
+var sdl.create-texture-from-surface.ptr !( -- Pointer )
+var sdl.render-copy.ptr !( -- Pointer )
+var sdl.render-present.ptr !( -- Pointer )
+var sdl.load-bmp-rw.ptr !( -- Pointer )
+var sdl.rw-from-file.ptr !( -- Pointer )
+var sdl.free-surface.ptr !( -- Pointer )
+var sdl.blit-surface.ptr !( -- Pointer )
+var sdl.get-window-surface.ptr !( -- Pointer )
+var sdl.update-window-surface.ptr !( -- Pointer )
 
 : sdl.open-shared s" libSDL2.so" rtld-lazy dlopen sdl.shared ! ;
 rem : sdl.check-sym @ if else 8585 . cr 1 exit then ;
@@ -15,12 +26,49 @@ rem : sdl.check-sym @ if else 8585 . cr 1 exit then ;
   sdl.poll-event.ptr s" SDL_PollEvent" sdl.load-sym
   sdl.quit.ptr s" SDL_Quit" sdl.load-sym
   sdl.create-window.ptr s" SDL_CreateWindow" sdl.load-sym
+  sdl.destroy-window.ptr s" SDL_DestroyWindow" sdl.load-sym
+  sdl.create-renderer.ptr s" SDL_CreateRenderer" sdl.load-sym
+  sdl.create-texture-from-surface.ptr s" SDL_CreateTextureFromSurface" sdl.load-sym
+  sdl.render-copy.ptr s" SDL_RenderCopy" sdl.load-sym
+  sdl.render-present.ptr s" SDL_RenderPresent" sdl.load-sym
+  sdl.load-bmp-rw.ptr s" SDL_LoadBMP_RW" sdl.load-sym
+  sdl.rw-from-file.ptr s" SDL_RWFromFile" sdl.load-sym
+  sdl.free-surface.ptr s" SDL_FreeSurface" sdl.load-sym
+  sdl.blit-surface.ptr s" SDL_UpperBlit" sdl.load-sym
+  sdl.get-window-surface.ptr s" SDL_GetWindowSurface" sdl.load-sym
+  sdl.update-window-surface.ptr s" SDL_UpdateWindowSurface" sdl.load-sym
 ;
+
+: sdl.WindowU.t newtype ;
+: sdl.WindowU sdl.WindowU.t eff.apply ;
+: sdl.Window.t newtype ;
+: sdl.Window sdl.Window.t eff.apply ;
+
+: sdl.RendererU.t newtype ;
+: sdl.RendererU sdl.RendererU.t eff.apply ;
+: sdl.Renderer.t newtype ;
+: sdl.Renderer sdl.Renderer.t eff.apply ;
 
 : sdl.EventU.t newtype ;
 : sdl.EventU sdl.EventU.t eff.apply ;
 : sdl.Event.t newtype ;
 : sdl.Event sdl.Event.t eff.apply ;
+
+: sdl.SurfaceU.t newtype ;
+: sdl.SurfaceU sdl.SurfaceU.t eff.apply ;
+: sdl.Surface.t newtype ;
+: sdl.Surface sdl.Surface.t eff.apply ;
+
+: sdl.TextureU.t newtype ;
+: sdl.TextureU sdl.TextureU.t eff.apply ;
+: sdl.Texture.t newtype ;
+: sdl.Texture sdl.Texture.t eff.apply ;
+
+: sdl.ScreenU.t newtype ;
+: sdl.ScreenU sdl.ScreenU.t eff.apply ;
+: sdl.Screen.t newtype ;
+: sdl.Screen sdl.Screen.t eff.apply ;
+
 : sdl.Event.size 56 ;
 : sdl.Event.init sp@ sdl.Event.size p- cell p+ sp! ; !( -- sdl.EventU )
 : sdl.EventU.drop sp@ sdl.Event.size p+ cell p+ sp! ; !( sdl.EventU -- ) impl> drop
@@ -36,9 +84,7 @@ rem : sdl.windowpos-undefined 0x1fff0000 ;
 : sdl.window-shown 0x4 ;
 : sdl.window-resizable 0x20 ;
 : sdl.quit-event 0x100 ;
-: e!
-  Pointer.Int.swap !
-;  !( sdl.Event Int )
+: sdl.default-pos sdl.windowpos-undefined sdl.windowpos-undefined ;
 
 : sdl.get-error
   sdl.get-error.ptr p@ c.call0
@@ -48,40 +94,92 @@ rem : sdl.windowpos-undefined 0x1fff0000 ;
 ;
 : sdl.init
   sdl.init-shared
-  s" s" s. cr
   rem sdl.init.ptr p@ c.call1 if print-error then
   sdl.init.ptr p@ c.call1 Int.drop
-  s" e" s. cr
 ;
 : sdl.poll-event sdl.poll-event.ptr p@ c.call1 ; !( sdl.Event -- Int )
 : sdl.quit sdl.quit.ptr p@ c.call0 Int.drop ;
-: sdl.create-window sdl.create-window.ptr p@ c.call6 ;
+: sdl.create-window sdl.create-window.ptr p@ c.call6 ; !( Int Int Int Int Int Int -- sdl.WindowU )
+: sdl.destroy-window.unsafe sdl.destroy-window.ptr p@ c.call1 Int.drop ; !( sdl.WindowU -- )
+: sdl.WindowU.lent Int.dup ; !( sdl.WindowU -- sdl.WindowU sdl.Window ) impl> lent
+: sdl.WindowU.drop sdl.destroy-window.unsafe ; impl> drop
+: sdl.WindowU.ret ; !( sdl.WindowU -- sdl.WindowU )
+: sdl.WindowU.dummy ; !( -- sdl.WindowU )
 
-: sdl.defaultpos sdl.windowpos-undefined sdl.windowpos-undefined ;
-: create-window s" SDL in Hedon" 0 0 640 480 0 sdl.create-window ;
-: l. Int.dup . cr ; !( sdl.Event -- sdl.Event )
-: poll s" poll " s. cr sdl.Event.lent sdl.poll-event ;
-: isquit sdl.Event.lent sdl.Event.type dup . sdl.quit-event eq ;
-: event-loop
-  sdl.Event.init 
-  sdl.Event.lent 0 e!
-  begin
-    poll
-  while
-    isquit if
-      0 exit
-    then
-  repeat
-  drop
-;
-: update
-  begin 1 while
-    event-loop
-    s"  end" . cr
-  repeat
-;
-: main
+: sdl.create-renderer sdl.create-renderer.ptr p@ c.call3 ; !( sdl.Window Int Int -- sdl.RendererU )
+: sdl.create-texture-from-surface sdl.create-texture-from-surface.ptr p@ c.call2 ; !( sdl.Renderer sdl.Surface -- sdl.TextureU )
+: sdl.render-copy sdl.render-copy.ptr p@ c.call4 Int.drop ; !( sdl.Renderer sdl.Texture Pointer Pointer )
+: sdl.render-present sdl.render-present.ptr p@ c.call1 Int.drop ; !( sdl.Renderer )
+
+: sdl.rw-from-file sdl.rw-from-file.ptr p@ c.call2 ;
+: sdl.load-bmp s" rb" sdl.rw-from-file 1 sdl.load-bmp-rw.ptr p@ c.call2 dup 0 eq ; !( Int -- sdl.SurfaceU Int )
+: sdl.free-surface.unsafe sdl.free-surface.ptr p@ c.call1 Int.drop ; !( sdl.SurfaceU -- )
+: sdl.blit-surface sdl.blit-surface.ptr p@ c.call4 Int.drop ; !( sdl.Surface Pointer sdl.Screen Pointer -- )
+: sdl.SurfaceU.lent Int.dup ; !( sdl.SurfaceU -- sdl.SurfaceU sdl.Surface ) impl> lent
+: sdl.SurfaceU.drop sdl.free-surface.unsafe ; impl> drop
+: sdl.SurfaceU.ret ; !( sdl.SurfaceU -- sdl.SurfaceU )
+: sdl.SurfaceU.dummy ; !( -- sdl.SurfaceU )
+
+: sdl.get-window-surface sdl.get-window-surface.ptr p@ c.call1 ; !( sdl.Window -- sdl.ScreenU )
+: sdl.update-window-surface sdl.update-window-surface.ptr p@ c.call1 Int.drop ; !( sdl.Window )
+: sdl.ScreenU.lent Int.dup ; !( sdl.ScreenU -- sdl.ScreenU sdl.Screen ) impl> lent
+
+: sdl.RendererU.lent Int.dup ; !( sdl.RendererU -- sdl.RendererU sdl.Renderer ) impl> lent
+: sdl.TextureU.lent Int.dup ; !( sdl.TextureU -- sdl.TextureU sdl.Texture ) impl> lent
+
+: null 0 ; !( -- Pointer )
+
+var window.ptr !( -- Pointer )
+: window@ window.ptr @ ; !( -- sdl.Window )
+: window@.unsafe window.ptr @ ; !( -- sdl.WindowU )
+: window! window.ptr ! ; !( sdl.WindowU -- )
+: window.drop window@.unsafe sdl.destroy-window.unsafe ;
+var renderer.ptr !( -- Pointer )
+: renderer@ renderer.ptr @ ; !( -- sdl.Renderer )
+: renderer! renderer.ptr ! ; !( sdl.RendererU -- )
+
+: create-window s" SDL in Hedon" sdl.default-pos 311 400 0 sdl.create-window ;
+: init
   sdl.init-video sdl.init
-  create-window
-  update
-; main
+  create-window window!
+  window@ -1 0 sdl.create-renderer renderer!
+;
+: load-bmp sdl.load-bmp if s" surf is nil" s. cr then ;
+: draw-bmp sdl.blit-surface ;
+: update-screen window@ sdl.update-window-surface ;
+
+: poll lent sdl.poll-event ;
+: isquit lent sdl.Event.type sdl.quit-event eq ;
+: quit sdl.SurfaceU.drop window.drop sdl.quit 0 exit ;
+
+: Texture.Renderer.swap Int.swap ; !( sdl.Texture sdl.Renderer -- sdl.Renderer sdl.Texture )
+: Surface.Renderer.swap Int.swap ; !( sdl.Surface sdl.Renderer -- sdl.Renderer sdl.Surface )
+: load-scene s" ./image.bmp" load-bmp lent renderer@ Surface.Renderer.swap sdl.create-texture-from-surface ;
+: draw-scene sdl.TextureU.lent renderer@ Texture.Renderer.swap null null sdl.render-copy ;
+: draw draw-scene renderer@ sdl.render-present update-screen ;
+
+rem : event isquit if sdl.EventU.drop quit sdl.SurfaceU.dummy else sdl.EventU.drop sdl.SurfaceU.ret then ;
+rem : event-loop
+rem   begin
+rem     sdl.Event.init 
+rem     poll
+rem   while
+rem     event
+rem   repeat
+rem ;
+rem : update event-loop ;
+
+: main
+  init
+  load-scene
+  draw
+;
+main
+
+rem : main
+rem   init
+rem   load-scene
+rem   begin 1 while
+rem     update
+rem   repeat
+rem ; main

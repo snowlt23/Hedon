@@ -68,6 +68,13 @@
   X 0x48 X 0x0f X 0xb6 X 0xc0
   rax>
 ;
+: <
+  >rcx >rax
+  X 0x48 X 0x39 X 0xc8
+  X 0x0f X 0x9c X 0xc0
+  X 0x48 X 0x0f X 0xb6 X 0xc0
+  rax>
+;
 
 : >rbx X 0x48 X 0x8b X 0x1b ; !( Int -- )
 : rbx> grow X 0x48 X 0x89 X 0x1b ;
@@ -153,10 +160,25 @@ rem : op cp p@ c! 1 cp +! ;
 
 rem syscalls
 : op-syscall 0x0f op 0x05 op ; immediate
-: syscall0 >rax op-syscall ;
-: syscall1 >rax >rdi op-syscall ;
-: syscall2 >rax >rdi >rsi op-syscall ;
-: exit 60 syscall1 ;
+: syscall0 >rax op-syscall >rax ;
+: syscall1 >rax >rdi op-syscall >rax ; !( Int Int -- Int )
+: syscall2 >rax >rsi >rdi op-syscall >rax ;
+: syscall3 >rax >rdx >rsi >rdi op-syscall >rax ;
+: exit 60 syscall1 Int.drop ;
+
+rem file
+: FileU.t newtype ;
+: FileU FileU.t eff.apply ;
+: File.t newtype ;
+: File File.t eff.apply ;
+: FileMode.t newtype ;
+: FileMode FileMode.t eff.apply ;
+: open-file 0 2 syscall3 dup 0 < ; !( Int FileMode -- FileU Int )
+: close-file 3 syscall1 Int.drop ; !( FileU -- )
+: r/o 0 ; !( -- FileMode )
+: FileU.lent Int.dup ; !( FileU -- FileU File ) impl> lent
+: read 0 syscall3 Int.drop ; !( File Pointer Int -- )
+: FileU.drop close-file ; impl> drop
 
 : p. . ; !( Pointer )
 
@@ -195,7 +217,7 @@ var while.out !( -- Pointer )
   cp @
 ; immediate !( -- BeginAddr )
 : while
-  Int.t eff.drop while.save
+  Int.t eff.drop
   0x48 op 0x8b op 0x03 op
   0x48 op 0x83 op 0xc3 op 0x08 op
   0x48 op 0x83 op 0xf8 op 0x00 op
@@ -208,7 +230,6 @@ var while.out !( -- Pointer )
   0xe9 op
   op-from-chere
   fixup-to-chere
-  while.load
 ; immediate !( BeginAddr WhileAddr )
 
 : op-r8-call 0x41 op 0xff op 0xd0 op ;
@@ -278,6 +299,18 @@ var while.out !( -- Pointer )
 : c.call2
   Pointer.t eff.drop Int.t eff.drop Int.t eff.drop Int.t eff.push
   postpone >r11 postpone >rsi postpone >rdi
+  op-r11-call
+  postpone rax>
+; immediate !( )
+: c.call3
+  Pointer.t eff.drop Int.t eff.drop Int.t eff.drop Int.t eff.drop Int.t eff.push
+  postpone >r11 postpone >rdx postpone >rsi postpone >rdi
+  op-r11-call
+  postpone rax>
+; immediate !( )
+: c.call4
+  Pointer.t eff.drop Int.t eff.drop Int.t eff.drop Int.t eff.drop Int.t eff.drop Int.t eff.push
+  postpone >r11 postpone >rcx postpone >rdx postpone >rsi postpone >rdi
   op-r11-call
   postpone rax>
 ; immediate !( )
