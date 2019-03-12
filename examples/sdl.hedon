@@ -1,0 +1,87 @@
+var sdl.shared !( -- Pointer )
+var sdl.get-error.ptr !( -- Pointer )
+var sdl.init.ptr !( -- Pointer )
+var sdl.poll-event.ptr !( -- Pointer )
+var sdl.quit.ptr !( -- Pointer )
+var sdl.create-window.ptr !( -- Pointer )
+
+: sdl.open-shared s" libSDL2.so" rtld-lazy dlopen sdl.shared ! ;
+rem : sdl.check-sym @ if else 8585 . cr 1 exit then ;
+: sdl.load-sym sdl.shared @ Int.swap dlsym Pointer.Int.swap ! ;
+: sdl.init-shared
+  sdl.open-shared
+  sdl.get-error.ptr s" SDL_GetError" sdl.load-sym
+  sdl.init.ptr s" SDL_Init" sdl.load-sym
+  sdl.poll-event.ptr s" SDL_PollEvent" sdl.load-sym
+  sdl.quit.ptr s" SDL_Quit" sdl.load-sym
+  sdl.create-window.ptr s" SDL_CreateWindow" sdl.load-sym
+;
+
+: sdl.EventU.t newtype ;
+: sdl.EventU sdl.EventU.t eff.apply ;
+: sdl.Event.t newtype ;
+: sdl.Event sdl.Event.t eff.apply ;
+: sdl.Event.size 56 ;
+: sdl.Event.init sp@ sdl.Event.size p- cell p+ sp! ; !( -- sdl.EventU )
+: sdl.EventU.drop sp@ sdl.Event.size p+ cell p+ sp! ; !( sdl.EventU -- ) impl> drop
+: sdl.Event.drop Int.drop ; !( sdl.Event -- ) impl> drop
+: sdl.Event.lent sp@ cell p+ ; !( sdl.EventU -- sdl.EventU sdl.Event ) impl> lent
+: sdl.Event.type u32@ ; !( sdl.Event -- Int )
+
+rem flags
+: sdl.init-video 0x20 ;
+rem : sdl.windowpos-undefined 0x1fff0000 ;
+: sdl.windowpos-undefined 0 ;
+: sdl.window-opengl 0x2 ;
+: sdl.window-shown 0x4 ;
+: sdl.window-resizable 0x20 ;
+: sdl.quit-event 0x100 ;
+: e!
+  Pointer.Int.swap !
+;  !( sdl.Event Int )
+
+: sdl.get-error
+  sdl.get-error.ptr p@ c.call0
+;
+: print-error
+  sdl.get-error s. cr
+;
+: sdl.init
+  sdl.init-shared
+  s" s" s. cr
+  rem sdl.init.ptr p@ c.call1 if print-error then
+  sdl.init.ptr p@ c.call1 Int.drop
+  s" e" s. cr
+;
+: sdl.poll-event sdl.poll-event.ptr p@ c.call1 ; !( sdl.Event -- Int )
+: sdl.quit sdl.quit.ptr p@ c.call0 Int.drop ;
+: sdl.create-window sdl.create-window.ptr p@ c.call6 ;
+
+: sdl.defaultpos sdl.windowpos-undefined sdl.windowpos-undefined ;
+: create-window s" SDL in Hedon" 0 0 640 480 0 sdl.create-window ;
+: l. Int.dup . cr ; !( sdl.Event -- sdl.Event )
+: poll s" poll " s. cr sdl.Event.lent sdl.poll-event ;
+: isquit sdl.Event.lent sdl.Event.type dup . sdl.quit-event eq ;
+: event-loop
+  sdl.Event.init 
+  sdl.Event.lent 0 e!
+  begin
+    poll
+  while
+    isquit if
+      0 exit
+    then
+  repeat
+  drop
+;
+: update
+  begin 1 while
+    event-loop
+    s"  end" . cr
+  repeat
+;
+: main
+  sdl.init-video sdl.init
+  create-window
+  update
+; main

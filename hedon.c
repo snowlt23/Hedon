@@ -602,12 +602,14 @@ void word_def() {
   // write with inferred type
   buffer = def->bufferaddr;
   writestate = true;
+  write_hex(0x48, 0x83, 0xec, 0x08); // sub rsp, 8
   for (;;) {
     parse_token();
     if (strcmp(token, ";") == 0) break;
     if (strlen(token) == 0) error("require end of definition.");
     eval_token();
   }
+  write_hex(0x48, 0x83, 0xc4, 0x08); // add rsp, 8
   write_hex(0xc3); // ret
   state = false;
   def->codesize = (size_t)cp - p;
@@ -943,18 +945,23 @@ void word_dlclose() {
   push_x((size_t)&dlclose);
 }
 
+size_t call1(size_t a) {
+  return a;
+}
+void word_call1() {
+  push_x((size_t)&call1);
+}
+size_t call2(size_t a, size_t b) {
+  return a - b;
+}
+void word_call2() {
+  push_x((size_t)&call2);
+}
 size_t call6(size_t a, size_t b, size_t c, size_t d, size_t e, size_t f) {
-  // fprintf(stderr, "%zd %zd %zd %zd %zd %zd\n", a, b, c, d, e, f);
   return a - b - c - d - e - f;
 }
 void word_call6() {
   push_x((size_t)&call6);
-}
-size_t sub(size_t a, size_t b) {
-  return a - b;
-}
-void word_sub() {
-  push_x((size_t)&sub);
 }
 
 void eval_token() {
@@ -1049,8 +1056,9 @@ void eval_token() {
   BUILTIN_WORD("builtin.c.dlopen", word_dlopen, 8, {OUT_EFF("Pointer")});
   BUILTIN_WORD("builtin.c.dlsym", word_dlsym, 8, {OUT_EFF("Pointer")});
   BUILTIN_WORD("builtin.c.dlclose", word_dlclose, 8, {OUT_EFF("Pointer")});
-  BUILTIN_WORD("builtin.c.sub", word_sub, 8, {OUT_EFF("Pointer")});
-  BUILTIN_WORD("builtin.c.call6", word_call6, 8, {OUT_EFF("Pointer")});
+  BUILTIN_WORD("builtin.test.call1", word_call1, 8, {OUT_EFF("Pointer")});
+  BUILTIN_WORD("builtin.test.call2", word_call2, 8, {OUT_EFF("Pointer")});
+  BUILTIN_WORD("builtin.test.call6", word_call6, 8, {OUT_EFF("Pointer")});
 
   error("undefined %s word.", token);
 }

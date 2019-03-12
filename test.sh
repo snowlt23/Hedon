@@ -46,6 +46,7 @@ runtest "4 5 Int.drop ." "4"
 runtest ": add5 5 + ; dump-type add5" "Int.t -- Int.t"
 runtest ": add5 5 + ; dump-effect add5" "Int:out Int:in Int:in Int:out "
 runtest ": add5 5 + ; : x9 4 add5 ; x9 ." "9"
+runtest ": m 5 eq ; 4 m . 5 m ." "01"
 
 runtest "4 5 Int.drop ." "4"
 runtest "555 . cr 0 ." "555
@@ -87,6 +88,7 @@ error_filetest "examples/err.hedon" "unresolved drop trait word in main2"
 error_filetest "examples/linear.hedon" "unmatch FileU.t type to File.t in write-file-illegal"
 
 # cffi
-runtest ": main 1 2 c.sub c.call2 . ; main" "-1"
-runtest ": main 1 2 3 4 5 6 ccc.call6 c.call6 . ; main" "-19"
-filetest "examples/dl.hedon" "555"
+runtest ": main 9 test.call1 c.call1 . ; main" "9"
+runtest ": main 1 2 test.call2 c.call2 . ; main" "-1"
+runtest ": main 1 2 3 4 5 6 test.call6 c.call6 . ; main" "-19"
+# filetest "examples/dl.hedon" "555"

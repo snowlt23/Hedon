@@ -37,7 +37,6 @@
 : grow X 0x48 X 0x83 X 0xeb X 0x08 ; !( -- Int )
 : Int.drop X 0x48 X 0x83 X 0xc3 X 0x08 ; !( Int ) impl> drop
 : >rax X 0x48 X 0x8b X 0x03 Int.drop ;
-: >rbx X 0x48 X 0x8b X 0x1b Int.drop ;
 : >rcx X 0x48 X 0x8b X 0x0b Int.drop ;
 : >rdx X 0x48 X 0x8b X 0x13 Int.drop ;
 : >rdi X 0x48 X 0x8b X 0x3b Int.drop ;
@@ -47,7 +46,6 @@
 : >r10 X 0x4c X 0x8b X 0x13 Int.drop ;
 : >r11 X 0x4c X 0x8b X 0x1b Int.drop ;
 : rax> grow X 0x48 X 0x89 X 0x03 ;
-: rbx> grow X 0x48 X 0x89 X 0x1b ;
 : rcx> grow X 0x48 X 0x89 X 0x0b ;
 : Int.dup >rax grow rax> ; impl> dup
 : Type.dup Int.dup ; !( Type -- Type Type ) impl> dup
@@ -55,17 +53,31 @@
 : Int.swap >rax >rcx rax> rcx> ;
 : Pointer.Int.swap Int.swap ; !( Pointer Int -- Int Pointer )
 : Type.swap Int.swap ; !( Type Type -- Type Type )
-: sp@ rbx> ; !( -- Pointer )
-: sp! >rbx ; !( Pointer Pointer -- )
+
+: lent.eff a dup eff.drop eff.push b eff.push ;
+: lent trait ; !( lent.eff )
 
 : + >rcx >rax X 0x48 X 0x01 X 0xc8 rax> ;
 : - >rcx >rax X 0x48 X 0x29 X 0xc8 rax> ;
 : p+ + ; !( Pointer Int -- Pointer )
 : p- - ; !( Pointer Int -- Pointer )
+: eq
+  >rcx >rax
+  X 0x48 X 0x39 X 0xc8
+  X 0x0f X 0x94 X 0xc0
+  X 0x48 X 0x0f X 0xb6 X 0xc0
+  rax>
+;
+
+: >rbx X 0x48 X 0x8b X 0x1b ; !( Int -- )
+: rbx> grow X 0x48 X 0x89 X 0x1b ;
+: sp@ rbx> ; !( -- Pointer )
+: sp! >rbx ; !( Pointer -- )
 
 : band >rcx >rax X 0x48 X 0x21 X 0xc8 rax> ;
 : shr >rcx >rax X 0x48 X 0xd3 X 0xe8 rax> ;
 : @ >rax X 0x48 X 0x8b X 0x00 rax> ; !( Pointer -- Int )
+: u32@ >rax X 0x8b X 0x00 rax> ; !( Pointer -- Int )
 : ! >rax >rcx X 0x48 X 0x89 X 0x08 ; !( Int Pointer -- )
 : p@ >rax X 0x48 X 0x8b X 0x00 rax> ; !( Pointer -- Pointer )
 : p! >rax >rcx X 0x48 X 0x89 X 0x08 ; !( Pointer Pointer -- )
@@ -226,18 +238,42 @@ var while.out !( -- Pointer )
   op-call
 ; immediate
 
-: c.sub builtin.c.sub ;
-: ccc.call6 builtin.c.call6 ;
+: test.call1 builtin.test.call1 ;
+: test.call2 builtin.test.call2 ;
+: test.call6 builtin.test.call6 ;
+: op-grow 0x48 op 0x83 op 0xeb op 0x08 op ;
+: op-drop 0x48 op 0x83 op 0xc3 op 0x08 op ;
+: op->r11 0x4c op 0x8b op 0x1b op op-drop ;
+: op->rdi 0x48 op 0x8b op 0x3b op op-drop ;
+: op-rax> op-grow 0x48 op 0x8b op 0x3b op ;
+: op-aligned-r11-call
+  0x49 op 0x89 op 0xcc op rem        mov    r12,rcx
+  0x49 op 0x89 op 0xd5 op rem        mov    r13,rdx
+  0x48 op 0x89 op 0xe0 op
+  0x48 op 0xc7 op 0xc1 op 0x10 op 00 op 00 op 00 op rem  mov    rcx,0x10
+  0x48 op 0xc7 op 0xc2 op 0x00 op 00 op 00 op 00 op rem  mov    rdx,0x0
+  0x48 op 0xf7 op 0xf1 op rem div    rcx
+  0x48 op 0x83 op 0xfa op 0x00 op  rem    cmp    rdx,0x0
+  0x4c op 0x89 op 0xe1 op rem mov rcx, r12
+  0x4c op 0x89 op 0xea op rem mov rdx, r13
+  0x74 op 0x05 op    rem         je     22 <align_f>
+  0x41 op 0xff op 0xd3 op    rem            call   r11
+  0xeb op 0x0b op    rem            jmp    2d <align_e>
+  0x48 op 0x83 op 0xec op 08 op  rem           sub    rsp,0x8
+  0x41 op 0xff op 0xd3 op   rem       call   r11
+  0x48 op 0x83 op 0xc4 op 08 op rem            add    rsp,0x8
+;
 : c.call0
   Pointer.t eff.drop Int.t eff.push
-  postpone >r11
+  op->r11
   op-r11-call
-  postpone rax>
+  op-rax>
 ; immediate !( )
 : c.call1
   Pointer.t eff.drop Int.t eff.drop Int.t eff.push
-  postpone >r11 postpone >rdi
-  postpone rax>
+  op->r11 op->rdi
+  op-r11-call
+  op-rax>
 ; immediate !( )
 : c.call2
   Pointer.t eff.drop Int.t eff.drop Int.t eff.drop Int.t eff.push

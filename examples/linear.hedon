@@ -3,9 +3,6 @@
 : FileU FileU.t eff.apply ;
 : File File.t eff.apply ;
 
-: lent.eff a dup eff.drop b dup eff.drop Type.swap eff.push eff.push ;
-: lent trait ; !( lent.eff )
-
 : open-file ; !( -- FileU )
 : FileU.lent ; !( FileU -- FileU File ) impl> lent
 : File.dup ; !( File -- File File ) impl> dup
