@@ -1,5 +1,4 @@
-: FErr.t newtype ;
-: FErr FErr.t eff.apply ;
+: FErr newtype ;
 : open 1 0 ; !( -- Int FErr )
 : Err.drop Int.drop ; !( FErr )
 : try Err.drop ;

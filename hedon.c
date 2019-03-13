@@ -52,9 +52,14 @@ typedef struct {
   size_t cap;
   size_t count;
 } Defs;
+typedef enum {
+  EFF_IN,
+  EFF_OUT,
+  EFF_IMM
+} EffKind;
 typedef struct {
+  EffKind kind;
   struct _Def* def;
-  bool inout;
 } Eff;
 typedef struct {
   Eff* data;
@@ -84,7 +89,6 @@ uint8_t* sp;
 uint8_t* dp;
 bool state;
 bool writestate;
-bool tapplystate;
 
 Defs globaldefs;
 Defs localdefs;
@@ -221,10 +225,10 @@ Type* init_wraptype(char* name, size_t id) {
 // Eff
 //
 
-Eff init_eff(Def* def, bool inout) {
+Eff init_eff(Def* def, EffKind kind) {
   Eff eff;
   eff.def = def;
-  eff.inout = inout;
+  eff.kind = kind;
   return eff;
 }
 
@@ -415,6 +419,9 @@ bool imm_pop_type(Type* l) {
   }
   Type* sl = pop_type(i_out);
   if (!eqtype(l, sl)) error("unmatch %s type to %s", sl->name, l->name);
+  // TODO:
+  // if (l->kind == TYPE_PARAM) *l = *sl;
+  // if (sl->kind == TYPE_PARAM) *sl = *l;
   return false;
 }
 bool global_pop_type(Type* l) {
@@ -510,8 +517,16 @@ void apply_effects(Def* def) {
   }
   for (int i=0; i<def->effects.count; i++) {
     Eff eff = def->effects.data[i];
-    tapplystate = eff.inout;
+    bool tmpws = writestate;
+    writestate = true;
+    apply_effects(eff.def);
+    writestate = tmpws;
     call_word(eff.def->wp);
+    if (eff.kind == EFF_IMM) continue;
+    global_pop_type(typet);
+    Type* t = (Type*)pop_x();
+    if (eff.kind == EFF_IN) global_pop_type(t);
+    else global_push_type(t);
   }
 defer_eff:
   if (!writestate) {
@@ -534,21 +549,26 @@ void add_int_effect() {
   Def* eff = search_def(&globaldefs, "Int");
   if (eff == NULL) error("undefined Int word");
   Def* wdef = last_def(globaldefs);
-  add_eff(&wdef->effects, init_eff(eff, false));
+  add_eff(&wdef->effects, init_eff(eff, EFF_OUT));
 }
 
-#define BUILTIN_EFF(arr, d, inout, ...) \
+#define BUILTIN_EFF(arr, d, kind, ...) \
   Def* d = last_def(globaldefs); \
   char* arr[] = {__VA_ARGS__}; \
-  tapplystate = inout; \
   for (int i=0; i<sizeof(arr)/sizeof(char*); i++) { \
     Def* eff = search_def(&globaldefs, arr[i]); \
     if (eff == NULL) error("undefined %s eff-word", arr[i]); \
     call_word(eff->wp); \
-    add_eff(&d->effects, init_eff(eff, inout)); \
+    apply_effects(eff); \
+    if (kind == EFF_IMM) continue; \
+    global_pop_type(typet); \
+    Type* t = (Type*)pop_x(); \
+    if (kind == EFF_IN) global_pop_type(t); \
+    else global_push_type(t); \
+    add_eff(&d->effects, init_eff(eff, kind)); \
   }
-#define IN_EFF(...) BUILTIN_EFF(inarr, indef, true, __VA_ARGS__)
-#define OUT_EFF(...) BUILTIN_EFF(outarr, outdef, false, __VA_ARGS__)
+#define IN_EFF(...) BUILTIN_EFF(inarr, indef, EFF_IN, __VA_ARGS__)
+#define OUT_EFF(...) BUILTIN_EFF(outarr, outdef, EFF_OUT, __VA_ARGS__)
 #define BUILTIN_WORD(s, f, stackinc, tdecl) \
   if (strcmp(token, s) == 0) { \
     tdecl; \
@@ -565,6 +585,10 @@ void add_int_effect() {
     f(); \
     return; \
   }
+
+void word_type_eff() {
+  global_push_type(typet);
+}
 
 void word_type() {
   push_x((size_t)typet);
@@ -656,12 +680,6 @@ void word_is() {
   Type* t = (Type*)pop_x();
   if (ut->kind != TYPE_UNION) error("%s type isn't union", ut->name);
   push_type(ut->params, t);
-}
-
-void word_eff_apply() {
-  Type* t = (Type*)pop_x();
-  if (tapplystate) global_pop_type(t);
-  else global_push_type(t);
 }
 
 void word_eff_push() {
@@ -767,6 +785,16 @@ void word_does() {
   *fixup = (size_t)cp;
 }
 
+void word_eff_attach() {
+  Def* def = last_def(globaldefs);
+  def->freeze = NULL;
+  def->effects.count = 0;
+  parse_token();
+  Def* eff = search_def(&globaldefs, token);
+  if (eff == NULL) error("undefined %s word", token);
+  add_eff(&def->effects, init_eff(eff, EFF_IMM));
+}
+
 void word_force_effects() {
   Def* def = last_def(globaldefs);
   def->freeze = NULL;
@@ -794,10 +822,10 @@ void word_force_effects() {
 defer_inout:
   def->effects.count = 0;
   for (int i=0; i<bi; i++) {
-    add_eff(&def->effects, init_eff(beffs[bi-i-1], true));
+    add_eff(&def->effects, init_eff(beffs[bi-i-1], EFF_IN));
   }
   for (int i=0; i<ai; i++) {
-    add_eff(&def->effects, init_eff(aeffs[i], false));
+    add_eff(&def->effects, init_eff(aeffs[i], EFF_OUT));
   }
 
   spill_globaltype;
@@ -839,10 +867,12 @@ void word_dump_effect() {
   Def* def = search_def(&globaldefs, token);
   if (def == NULL) error("undefined %s word in dump-effect", token);
   for (int i=0; i<def->effects.count; i++) {
-    if (def->effects.data[i].inout) {
+    if (def->effects.data[i].kind == EFF_IN) {
       printf("%s:in ", def->effects.data[i].def->name);
-    } else {
+    } else if (def->effects.data[i].kind == EFF_OUT) {
       printf("%s:out ", def->effects.data[i].def->name);
+    } else {
+      printf("%s:imm ", def->effects.data[i].def->name);
     }
   }
 }
@@ -1014,45 +1044,51 @@ void eval_token() {
   BUILTIN_IMM_WORD("trait", word_trait);
   BUILTIN_WORD("impl>", word_impl, 0, {});
   BUILTIN_IMM_WORD("!(", word_force_effects);
+  BUILTIN_IMM_WORD("eff.attach", word_eff_attach);
   BUILTIN_IMM_WORD("X", word_X);
   BUILTIN_WORD("create", word_create, 0, {});
 
   // builtin for type def
-  BUILTIN_WORD("builtin.Type.t", word_type, 8, {});
-  BUILTIN_WORD("builtin.Int.t", word_int, 8, {});
+  BUILTIN_IMM_WORD("builtin.Type.eff", word_type_eff);
+  BUILTIN_WORD("builtin.Type", word_type, 8, {});
+  BUILTIN_WORD("builtin.Int", word_int, 8, {});
   BUILTIN_WORD("builtin.newtype", word_newtype, 8, {});
-  BUILTIN_WORD("builtin.uniontype", word_uniontype, 8, {});
   BUILTIN_WORD("builtin.paramtype", word_paramtype, 8, {});
   BUILTIN_WORD("is", word_is, -16, {IN_EFF("Type", "Type")});
 
-  // builtin twords
+  // effect words
   BUILTIN_WORD("builtin.eff.push", word_eff_push, -8, {});
   BUILTIN_WORD("builtin.eff.drop", word_eff_drop, -8, {});
   BUILTIN_WORD("builtin.eff.dup", word_eff_dup, -8, {});
-  BUILTIN_WORD("builtin.eff.apply", word_eff_apply, -8, {});
   BUILTIN_WORD("builtin.eff.save", word_eff_save, 16, {});
   BUILTIN_WORD("builtin.eff.load", word_eff_load, -16, {});
   BUILTIN_WORD("builtin.eff.check", word_eff_check, -32, {});
 
   // builtin words
-  BUILTIN_IMM_WORD("does>", word_does);
-  BUILTIN_IMM_WORD("s\"", word_strlit);
   BUILTIN_IMM_WORD("rem", word_rem);
+  BUILTIN_IMM_WORD("s\"", word_strlit);
+
+  // word control
+  BUILTIN_IMM_WORD("does>", word_does);
   BUILTIN_WORD("parse-token", word_parse_token, 0, {});
   BUILTIN_WORD("token", word_token, 8, {OUT_EFF("Int")});
   BUILTIN_WORD("search-word", word_search_word, 0, {IN_EFF("Int"); OUT_EFF("Int")});
   BUILTIN_WORD("word-code", word_word_code, 0, {IN_EFF("Int"); OUT_EFF("Int")});
+
   BUILTIN_WORD("builtin.dp", word_dp, 8, {OUT_EFF("Int")});
   BUILTIN_WORD("builtin.cp", word_cp, 8, {OUT_EFF("Int")});
   BUILTIN_WORD(".", word_dot, -8, {IN_EFF("Int")});
   BUILTIN_WORD("s.", word_sdot, -8, {IN_EFF("Int")});
   BUILTIN_WORD("cr", word_cr, 0, {});
   BUILTIN_WORD("op", word_op, -8, {IN_EFF("Int")});
+
+  // dump
   BUILTIN_WORD("dump-tstack", word_dump_tstack, 0, {});
   BUILTIN_WORD("dump-type", word_dump_type, 0, {});
   BUILTIN_WORD("dump-effect", word_dump_effect, 0, {});
   BUILTIN_WORD("dump-code", word_dump_code, 0, {});
 
+  // cffi
   BUILTIN_WORD("builtin.c.dlopen", word_dlopen, 8, {OUT_EFF("Pointer")});
   BUILTIN_WORD("builtin.c.dlsym", word_dlsym, 8, {OUT_EFF("Pointer")});
   BUILTIN_WORD("builtin.c.dlclose", word_dlclose, 8, {OUT_EFF("Pointer")});
@@ -1083,8 +1119,8 @@ void startup(size_t buffersize, size_t cpsize, size_t spsize, size_t dpsize) {
   g_in = init_typestack(8);
   g_out = init_typestack(8);
   typeid = 0;
-  typet = generate_type("Type.t");
-  intt = generate_type("Int.t");
+  typet = generate_type("Type");
+  intt = generate_type("Int");
 }
 
 void read_buffer(FILE* f) {

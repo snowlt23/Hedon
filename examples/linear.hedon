@@ -1,7 +1,5 @@
-: l.FileU.t newtype ;
-: l.File.t newtype ;
-: l.FileU FileU.t eff.apply ;
-: l.File File.t eff.apply ;
+: l.FileU newtype ;
+: l.File newtype ;
 
 : l.open-file ; !( -- FileU )
 : l.FileU.lent ; !( FileU -- FileU File ) impl> lent

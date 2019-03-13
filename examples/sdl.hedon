@@ -39,35 +39,16 @@ rem : sdl.check-sym @ if else 8585 . cr 1 exit then ;
   sdl.update-window-surface.ptr s" SDL_UpdateWindowSurface" sdl.load-sym
 ;
 
-: sdl.WindowU.t newtype ;
-: sdl.WindowU sdl.WindowU.t eff.apply ;
-: sdl.Window.t newtype ;
-: sdl.Window sdl.Window.t eff.apply ;
-
-: sdl.RendererU.t newtype ;
-: sdl.RendererU sdl.RendererU.t eff.apply ;
-: sdl.Renderer.t newtype ;
-: sdl.Renderer sdl.Renderer.t eff.apply ;
-
-: sdl.EventU.t newtype ;
-: sdl.EventU sdl.EventU.t eff.apply ;
-: sdl.Event.t newtype ;
-: sdl.Event sdl.Event.t eff.apply ;
-
-: sdl.SurfaceU.t newtype ;
-: sdl.SurfaceU sdl.SurfaceU.t eff.apply ;
-: sdl.Surface.t newtype ;
-: sdl.Surface sdl.Surface.t eff.apply ;
-
-: sdl.TextureU.t newtype ;
-: sdl.TextureU sdl.TextureU.t eff.apply ;
-: sdl.Texture.t newtype ;
-: sdl.Texture sdl.Texture.t eff.apply ;
-
-: sdl.ScreenU.t newtype ;
-: sdl.ScreenU sdl.ScreenU.t eff.apply ;
-: sdl.Screen.t newtype ;
-: sdl.Screen sdl.Screen.t eff.apply ;
+: sdl.WindowU newtype ;
+: sdl.Window newtype ;
+: sdl.RendererU newtype ;
+: sdl.Renderer newtype ;
+: sdl.EventU newtype ;
+: sdl.Event newtype ;
+: sdl.SurfaceU newtype ;
+: sdl.Surface newtype ;
+: sdl.TextureU newtype ;
+: sdl.Texture newtype ;
 
 : sdl.Event.size 56 ;
 : sdl.Event.init sp@ sdl.Event.size p- cell p+ sp! ; !( -- sdl.EventU )
@@ -101,6 +82,7 @@ rem : sdl.windowpos-undefined 0x1fff0000 ;
 : sdl.quit sdl.quit.ptr p@ c.call0 Int.drop ;
 : sdl.create-window sdl.create-window.ptr p@ c.call6 ; !( Int Int Int Int Int Int -- sdl.WindowU )
 : sdl.destroy-window.unsafe sdl.destroy-window.ptr p@ c.call1 Int.drop ; !( sdl.WindowU -- )
+: sdl.update-window-surface sdl.update-window-surface.ptr p@ c.call1 Int.drop ; !( sdl.Window )
 : sdl.WindowU.lent Int.dup ; !( sdl.WindowU -- sdl.WindowU sdl.Window ) impl> lent
 : sdl.WindowU.drop sdl.destroy-window.unsafe ; impl> drop
 : sdl.WindowU.ret ; !( sdl.WindowU -- sdl.WindowU )
@@ -114,15 +96,10 @@ rem : sdl.windowpos-undefined 0x1fff0000 ;
 : sdl.rw-from-file sdl.rw-from-file.ptr p@ c.call2 ;
 : sdl.load-bmp s" rb" sdl.rw-from-file 1 sdl.load-bmp-rw.ptr p@ c.call2 dup 0 eq ; !( Int -- sdl.SurfaceU Int )
 : sdl.free-surface.unsafe sdl.free-surface.ptr p@ c.call1 Int.drop ; !( sdl.SurfaceU -- )
-: sdl.blit-surface sdl.blit-surface.ptr p@ c.call4 Int.drop ; !( sdl.Surface Pointer sdl.Screen Pointer -- )
 : sdl.SurfaceU.lent Int.dup ; !( sdl.SurfaceU -- sdl.SurfaceU sdl.Surface ) impl> lent
 : sdl.SurfaceU.drop sdl.free-surface.unsafe ; impl> drop
 : sdl.SurfaceU.ret ; !( sdl.SurfaceU -- sdl.SurfaceU )
 : sdl.SurfaceU.dummy ; !( -- sdl.SurfaceU )
-
-: sdl.get-window-surface sdl.get-window-surface.ptr p@ c.call1 ; !( sdl.Window -- sdl.ScreenU )
-: sdl.update-window-surface sdl.update-window-surface.ptr p@ c.call1 Int.drop ; !( sdl.Window )
-: sdl.ScreenU.lent Int.dup ; !( sdl.ScreenU -- sdl.ScreenU sdl.Screen ) impl> lent
 
 : sdl.RendererU.lent Int.dup ; !( sdl.RendererU -- sdl.RendererU sdl.Renderer ) impl> lent
 : sdl.TextureU.lent Int.dup ; !( sdl.TextureU -- sdl.TextureU sdl.Texture ) impl> lent
@@ -145,7 +122,6 @@ var renderer.ptr !( -- Pointer )
   window@ -1 0 sdl.create-renderer renderer!
 ;
 : load-bmp sdl.load-bmp if s" surf is nil" s. cr then ;
-: draw-bmp sdl.blit-surface ;
 : update-screen window@ sdl.update-window-surface ;
 
 : poll lent sdl.poll-event ;
