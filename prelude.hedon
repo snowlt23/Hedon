@@ -5,42 +5,31 @@
 : eff.dup builtin.eff.dup ; !( Type -- )
 : newtype builtin.newtype Type eff.push ; immediate
 : paramtype builtin.paramtype Type eff.push ; immediate
-
-: Int builtin.Int ; !( -- Type )
-: Pointer newtype ;
 : a paramtype ;
 : b paramtype ;
 : c paramtype ;
 
-: EffSave newtype ;
-: eff.save builtin.eff.save ; !( -- Int )
-: eff.load builtin.eff.load ; !( Int -- )
-: eff.check builtin.eff.check ; !( Int Int -- )
+: Int builtin.Int ; !( -- Type )
+: Pointer newtype ;
 
-: IfAddr newtype ;
-: BeginAddr newtype ;
-: WhileAddr newtype ;
+: cell 8 ;
 
 : drop.eff a eff.drop ;
 : dup.eff a eff.dup ;
 : drop trait ; eff.attach drop.eff
 : dup trait ; eff.attach dup.eff
 
-: cell 8 ;
-
-: grow X 0x48 X 0x83 X 0xeb X 0x08 ; !( -- Int )
-: Int.drop X 0x48 X 0x83 X 0xc3 X 0x08 ; !( Int ) impl> drop
-: >rax X 0x48 X 0x8b X 0x03 Int.drop ;
-: >rcx X 0x48 X 0x8b X 0x0b Int.drop ;
-: >rdx X 0x48 X 0x8b X 0x13 Int.drop ;
-: >rdi X 0x48 X 0x8b X 0x3b Int.drop ;
-: >rsi X 0x48 X 0x8b X 0x33 Int.drop ;
-: >r8 X 0x4c X 0x8b X 0x03 Int.drop ;
-: >r9 X 0x4c X 0x8b X 0x0b Int.drop ;
-: >r10 X 0x4c X 0x8b X 0x13 Int.drop ;
-: >r11 X 0x4c X 0x8b X 0x1b Int.drop ;
-: rax> grow X 0x48 X 0x89 X 0x03 ;
-: rcx> grow X 0x48 X 0x89 X 0x0b ;
+: grow [ 0x48 0x83 0xeb 0x08 ] X ; !( -- Int )
+: Int.drop [ 0x48 0x83 0xc3 0x08 ] X ; !( Int ) impl> drop
+: >rax [ 0x48 0x8b 0x03 ] X Int.drop ;
+: >rcx [ 0x48 0x8b 0x0b ] X Int.drop ;
+: >rdx [ 0x48 0x8b 0x13 ] X Int.drop ;
+: >rdi [ 0x48 0x8b 0x3b ] X Int.drop ;
+: >rsi [ 0x48 0x8b 0x33 ] X Int.drop ;
+: >r8 [ 0x4c 0x8b 0x03 ] X Int.drop ;
+: >r9 [ 0x4c 0x8b 0x0b ] X Int.drop ;
+: rax> grow [ 0x48 0x89 0x03 ] X ;
+: rcx> grow [ 0x48 0x89 0x0b ] X ;
 : Int.dup >rax grow rax> ; impl> dup
 : Type.dup Int.dup ; !( Type -- Type Type ) impl> dup
 : Pointer.dup Int.dup ; !( Pointer -- Pointer Pointer ) impl> dup
@@ -48,64 +37,38 @@
 : Pointer.Int.swap Int.swap ; !( Pointer Int -- Int Pointer )
 : Type.swap Int.swap ; !( Type Type -- Type Type )
 
-: eff.to a Type.dup eff.drop ;
-: lent.eff a dup eff.drop eff.push b eff.push ;
-: lent trait ; eff.attach lent.eff
-
-: + >rcx >rax X 0x48 X 0x01 X 0xc8 rax> ;
-: - >rcx >rax X 0x48 X 0x29 X 0xc8 rax> ;
+: + >rcx >rax [ 0x48 0x01 0xc8 ] X rax> ;
+: - >rcx >rax [ 0x48 0x29 0xc8 ] X rax> ;
 : p+ + ; !( Pointer Int -- Pointer )
 : p- - ; !( Pointer Int -- Pointer )
 : eq
   >rcx >rax
-  X 0x48 X 0x39 X 0xc8
-  X 0x0f X 0x94 X 0xc0
-  X 0x48 X 0x0f X 0xb6 X 0xc0
-  rax>
-;
-: <
-  >rcx >rax
-  X 0x48 X 0x39 X 0xc8
-  X 0x0f X 0x9c X 0xc0
-  X 0x48 X 0x0f X 0xb6 X 0xc0
+  [ 0x48 0x39 0xc8
+    0x0f 0x94 0xc0
+    0x48 0x0f 0xb6 0xc0 ] X
   rax>
 ;
 
-: >rbx X 0x48 X 0x8b X 0x1b ; !( Int -- )
-: rbx> grow X 0x48 X 0x89 X 0x1b ;
+: >rbx [ 0x48 0x8b 0x1b ] X ; !( Int -- )
+: rbx> grow [ 0x48 0x89 0x1b ] X ;
 : sp@ rbx> ; !( -- Pointer )
 : sp! >rbx ; !( Pointer -- )
 
-: band >rcx >rax X 0x48 X 0x21 X 0xc8 rax> ;
-: shr >rcx >rax X 0x48 X 0xd3 X 0xe8 rax> ;
-: @ >rax X 0x48 X 0x8b X 0x00 rax> ; !( Pointer -- Int )
-: u32@ >rax X 0x8b X 0x00 rax> ; !( Pointer -- Int )
-: ! >rax >rcx X 0x48 X 0x89 X 0x08 ; !( Int Pointer -- )
-: p@ >rax X 0x48 X 0x8b X 0x00 rax> ; !( Pointer -- Pointer )
-: p! >rax >rcx X 0x48 X 0x89 X 0x08 ; !( Pointer Pointer -- )
-: c! >rax >rcx X 0x88 X 0x08 ; !( Int Pointer -- )
-: Int.pick2.eff
-  a dup eff.drop
-  Int eff.drop
-  Int eff.push eff.push Int eff.push
-;
-: Int.pick2 sp@ cell cell + p+ @ ; eff.attach Int.pick2.eff
-: cast-pointer ; !( Int -- Pointer )
+: band >rcx >rax [ 0x48 0x21 0xc8 ] X rax> ;
+: shr >rcx >rax [ 0x48 0xd3 0xe8 ] X rax> ;
+: @ >rax [ 0x48 0x8b 0x00 ] X rax> ; !( Pointer -- Int )
+: u32@ >rax [ 0x8b 0x00 ] X rax> ; !( Pointer -- Int )
+: ! >rax >rcx [ 0x48 0x89 0x08 ] X ; !( Int Pointer -- )
+: p@ >rax [ 0x48 0x8b 0x00 ] X rax> ; !( Pointer -- Pointer )
+: p! >rax >rcx [ 0x48 0x89 0x08 ] X ; !( Pointer Pointer -- )
+: c! >rax >rcx [ 0x88 0x08 ] X ; !( Int Pointer -- )
 : Int.pick3.eff
-  a dup eff.drop
   b dup eff.drop
+  a dup eff.drop
   Int eff.drop
   Int eff.push eff.push eff.push Int eff.push
 ;
 : Int.pick3 sp@ cell cell + cell + p+ @ ; eff.attach Int.pick3.eff
-: Int.pick4.eff
-  a dup eff.drop
-  b dup eff.drop
-  c dup eff.drop
-  Int eff.drop
-  Int eff.push eff.push eff.push eff.push Int eff.push
-;
-: Int.pick4 sp@ cell cell + cell + cell + p+ @ ; eff.attach Int.pick4.eff
 : +! dup @ Int.pick3 + Pointer.Int.swap ! Int.drop ;
 
 : dp builtin.dp ; !( -- Pointer )
@@ -114,206 +77,11 @@
 : here dp@ ;
 : allot dp +! ;
 : , here ! cell allot ;
-: var create 0 , ;
-: const create , does> @ ; !( Int )
-
-rem : op cp p@ c! 1 cp +! ;
-: ret 0xc3 op ; immediate
-: op-lendian32
-  dup 0 shr 0xff band op
-  dup 8 shr 0xff band op
-  dup 16 shr 0xff band op
-  24 shr 0xff band op
-;
-: op-lendian64
-  dup 0 shr 0xff band op
-  dup 8 shr 0xff band op
-  dup 16 shr 0xff band op
-  dup 24 shr 0xff band op
-  dup 32 shr 0xff band op
-  dup 40 shr 0xff band op
-  dup 48 shr 0xff band op
-  56 shr 0xff band op
-;
-: fixup-byte
-  shr 0xff band Int.pick2 cast-pointer c!
-  1 +
-;
-: fixup-lendian32
-  Int.pick2 0 fixup-byte
-  Int.pick2 8 fixup-byte
-  Int.pick2 16 fixup-byte
-  Int.pick2 24 fixup-byte
-;
-
-: fixup-to-chere
-  dup 4 + cp @ Int.swap - Int.swap fixup-lendian32 drop drop
-;
-: op-from-chere
-  cp @ 4 + - op-lendian32
-;
 
 rem syscalls
 : op-syscall 0x0f op 0x05 op ; immediate
 : syscall0 >rax op-syscall >rax ;
-: syscall1 >rax >rdi op-syscall >rax ; !( Int Int -- Int )
-: syscall2 >rax >rsi >rdi op-syscall >rax ;
-: syscall3 >rax >rdx >rsi >rdi op-syscall >rax ;
+: syscall1 >rax >rdi op-syscall rax> ;
+: syscall2 >rax >rsi >rdi op-syscall rax> ;
+: syscall3 >rax >rdx >rsi >rdi op-syscall rax> ;
 : exit 60 syscall1 Int.drop ;
-
-rem file
-: FileU newtype ;
-: File newtype ;
-: FileMode newtype ;
-: open-file 0 2 syscall3 dup 0 < ; !( Int FileMode -- FileU Int )
-: close-file 3 syscall1 Int.drop ; !( FileU -- )
-: r/o 0 ; !( -- FileMode )
-: FileU.lent Int.dup ; !( FileU -- FileU File ) impl> lent
-: read 0 syscall3 Int.drop ; !( File Pointer Int -- )
-: FileU.drop close-file ; impl> drop
-
-: p. . ; !( Pointer )
-
-var if.in !( -- Pointer )
-var if.out !( -- Pointer )
-: if.save eff.save if.out ! if.in ! ; !( )
-: if.load if.in @ if.out @ eff.load ; !( )
-: if.check if.in @ if.out @ eff.save eff.check ; !( )
-: if
-  0x48 op 0x8b op 0x03 op
-  0x48 op 0x83 op 0xc3 op 0x08 op
-  0x48 op 0x83 op 0xf8 op 0x00 op
-  0x0f op 0x84 op
-  cp @
-  0 op-lendian32
-  Int eff.drop
-  if.save 
-; immediate !( -- IfAddr )
-: else
-  if.in @ if.out @ if.save eff.load
-  0xe9 op
-  0 op-lendian32
-  fixup-to-chere
-  cp @ 4 -
-; immediate !( IfAddr -- IfAddr )
-: then
-  if.check
-  fixup-to-chere
-; immediate !( IfAddr )
-
-var while.in !( -- Pointer )
-var while.out !( -- Pointer )
-: while.save eff.save while.out ! while.in ! ; !( )
-: while.load while.in @ while.out @ eff.load ; !( )
-: begin
-  cp @
-; immediate !( -- BeginAddr )
-: while
-  Int eff.drop
-  0x48 op 0x8b op 0x03 op
-  0x48 op 0x83 op 0xc3 op 0x08 op
-  0x48 op 0x83 op 0xf8 op 0x00 op
-  0x0f op 0x84 op
-  cp @
-  0 op-lendian32
-; immediate !( BeginAddr -- BeginAddr WhileAddr )
-: repeat
-  Int.swap
-  0xe9 op
-  op-from-chere
-  fixup-to-chere
-; immediate !( BeginAddr WhileAddr )
-
-: op-r8-call 0x41 op 0xff op 0xd0 op ;
-: op-r9-call 0x41 op 0xff op 0xd1 op ;
-: op-r10-call 0x41 op 0xff op 0xd2 op ;
-: op-r11-call 0x41 op 0xff op 0xd3 op ;
-: op-call
-  0x4c op 0x8b op 0x13 op
-  0x48 op 0x83 op 0xc3 op 0x08 op
-  op-r10-call
-;
-: op-literal
-  0x48 op 0x83 op 0xeb op 0x08 op
-  0x49 op 0xba op
-  op-lendian64
-  0x4c op 0x89 op 0x13 op
-;
-
-: postpone-in
-  op-literal
-  op-call
-;
-
-: postpone
-  parse-token token search-word word-code op-literal
-  s" postpone-in" search-word word-code op-literal
-  op-call
-; immediate
-
-: test.call1 builtin.test.call1 ;
-: test.call2 builtin.test.call2 ;
-: test.call6 builtin.test.call6 ;
-: op-grow 0x48 op 0x83 op 0xeb op 0x08 op ;
-: op-drop 0x48 op 0x83 op 0xc3 op 0x08 op ;
-: op->r11 0x4c op 0x8b op 0x1b op op-drop ;
-: op->rdi 0x48 op 0x8b op 0x3b op op-drop ;
-: op-rax> op-grow 0x48 op 0x8b op 0x3b op ;
-: op-aligned-r11-call
-  0x49 op 0x89 op 0xcc op rem        mov    r12,rcx
-  0x49 op 0x89 op 0xd5 op rem        mov    r13,rdx
-  0x48 op 0x89 op 0xe0 op
-  0x48 op 0xc7 op 0xc1 op 0x10 op 00 op 00 op 00 op rem  mov    rcx,0x10
-  0x48 op 0xc7 op 0xc2 op 0x00 op 00 op 00 op 00 op rem  mov    rdx,0x0
-  0x48 op 0xf7 op 0xf1 op rem div    rcx
-  0x48 op 0x83 op 0xfa op 0x00 op  rem    cmp    rdx,0x0
-  0x4c op 0x89 op 0xe1 op rem mov rcx, r12
-  0x4c op 0x89 op 0xea op rem mov rdx, r13
-  0x74 op 0x05 op    rem         je     22 <align_f>
-  0x41 op 0xff op 0xd3 op    rem            call   r11
-  0xeb op 0x0b op    rem            jmp    2d <align_e>
-  0x48 op 0x83 op 0xec op 08 op  rem           sub    rsp,0x8
-  0x41 op 0xff op 0xd3 op   rem       call   r11
-  0x48 op 0x83 op 0xc4 op 08 op rem            add    rsp,0x8
-;
-: c.call0
-  Pointer eff.drop Int eff.push
-  op->r11
-  op-r11-call
-  op-rax>
-; immediate !( )
-: c.call1
-  Pointer eff.drop Int eff.drop Int eff.push
-  op->r11 op->rdi
-  op-r11-call
-  op-rax>
-; immediate !( )
-: c.call2
-  Pointer eff.drop Int eff.drop Int eff.drop Int eff.push
-  postpone >r11 postpone >rsi postpone >rdi
-  op-r11-call
-  postpone rax>
-; immediate !( )
-: c.call3
-  Pointer eff.drop Int eff.drop Int eff.drop Int eff.drop Int eff.push
-  postpone >r11 postpone >rdx postpone >rsi postpone >rdi
-  op-r11-call
-  postpone rax>
-; immediate !( )
-: c.call4
-  Pointer eff.drop Int eff.drop Int eff.drop Int eff.drop Int eff.drop Int eff.push
-  postpone >r11 postpone >rcx postpone >rdx postpone >rsi postpone >rdi
-  op-r11-call
-  postpone rax>
-; immediate !( )
-: c.call6
-  Pointer eff.drop Int eff.drop Int eff.drop Int eff.drop Int eff.drop Int eff.drop Int eff.drop Int eff.push
-  postpone >r11 postpone >r9 postpone >r8 postpone >rcx postpone >rdx postpone >rsi postpone >rdi
-  op-r11-call
-  postpone rax>
-; immediate !( )
-: rtld-lazy 1 ;
-: rtld-now 2 ;
-: dlopen builtin.c.dlopen c.call2 ;
-: dlsym builtin.c.dlsym c.call2 ;
-: dlclose builtin.c.dlclose c.call1 ;

@@ -1,7 +1,7 @@
 #!/bin/sh
 
 runtest() {
-  OUT=$(echo "$1" | ./hedon -l prelude.hedon)
+  OUT=$(echo "$1" | ./hedon)
   echo "[TEST] $1"
   if [ "$OUT" != "$2" ] ; then
     echo "[ERROR] $1    expect $2, but got $OUT"
@@ -9,7 +9,7 @@ runtest() {
   fi
 }
 exittest() {
-  OUT=$(echo "$1" | ./hedon -l prelude.hedon)
+  OUT=$(echo "$1" | ./hedon)
   RET=$?
   echo "[TEST] $1"
   if [ "$RET" != "$2" ] ; then
@@ -19,7 +19,7 @@ exittest() {
 }
 
 filetest() {
-  OUT=$(./hedon -l prelude.hedon -l $1 -c)
+  OUT=$(./hedon -l $1 -c)
   echo "[TEST] $1"
   if [ "$OUT" != "$2" ] ; then
     echo "[ERROR] $1    expect $2, but got $OUT"
@@ -28,7 +28,7 @@ filetest() {
 }
 
 errortest() {
-  ERR=$(echo "$1" | ./hedon -l prelude.hedon 2>&1)
+  ERR=$(echo "$1" | ./hedon 2>&1)
   echo "[TEST] $1"
   if [ "$ERR" != "$2" ] ; then
     echo "[ERROR] $1    expect \"$2\" error, but got \"$ERR\""
@@ -37,7 +37,7 @@ errortest() {
 }
 
 error_filetest() {
-  ERR=$(./hedon -l prelude.hedon -l $1 -c 2>&1)
+  ERR=$(./hedon -l $1 -c 2>&1)
   echo "[TEST] $1"
   if [ "$ERR" != "$2" ] ; then
     echo "[ERROR] $1    expect \"$2\" error, but got \"$ERR\""
@@ -50,6 +50,7 @@ runtest "4 5 + ." "9"
 runtest "dump-effect +" "Int:in Int:in Int:out "
 runtest "6 5 - ." "1"
 runtest "0 1 - ." "-1"
+runtest ": main 9 . ; dump-type main" " -- "
 runtest ": add5 5 + ; 4 add5 ." "9"
 runtest "4 5 Int.drop ." "4"
 runtest ": add5 5 + ; dump-type add5" "Int -- Int"
@@ -72,10 +73,9 @@ runtest ": main 0 9 dp Int.pick3 drop p@ ! dp p@ @ . ; main" "9"
 runtest "0 dp p@ ! 45 dp p@ +! dp p@ @ ." "45"
 runtest "1 , 2 , 3 , dp@ cell p- @ ." "3"
 # runtest "9 const nine nine ." "9"
-runtest "var fz !( -- Pointer ) 555 fz ! fz @ ." "555"
-runtest "var aaa !( -- Pointer ) var bbb !( -- Pointer ) 123 aaa ! 456 bbb ! aaa @ . bbb @ ." "123456"
+# runtest "var fz !( -- Pointer ) 555 fz ! fz @ ." "555"
+# runtest "var aaa !( -- Pointer ) var bbb !( -- Pointer ) 123 aaa ! 456 bbb ! aaa @ . bbb @ ." "123456"
 exittest "4 . 5 . 23 exit 6 ." "23"
-runtest ": main 9 . ; dump-type main" " -- "
 
 # control flow
 runtest ": main 0 if 4 . then 1 if 5 . then ; main" "5"
@@ -102,6 +102,9 @@ runtest ": main 9 test.call1 c.call1 . ; main" "9"
 runtest ": main 1 2 test.call2 c.call2 . ; main" "-1"
 runtest ": main 1 2 3 4 5 6 test.call6 c.call6 . ; main" "-19"
 # filetest "examples/dl.hedon" "555"
+
+# local
+runtest ": dadd -> x x x + ; dump-type dadd 9 dadd ." "Int -- Int18"
 
 # file
 # runtest ": main s\" ./test.txt\" r/o open-file ; main"

@@ -1,0 +1,45 @@
+: test.call1 builtin.test.call1 ;
+: test.call2 builtin.test.call2 ;
+: test.call6 builtin.test.call6 ;
+
+: c.call0
+  Pointer eff.drop Int eff.push
+  op->r11
+  op-r11-call
+  op-rax>
+; immediate !( )
+: c.call1
+  Pointer eff.drop Int eff.drop Int eff.push
+  op->r11 op->rdi
+  op-r11-call
+  op-rax>
+; immediate !( )
+: c.call2
+  Pointer eff.drop Int eff.drop Int eff.drop Int eff.push
+  postpone >r11 postpone >rsi postpone >rdi
+  op-r11-call
+  postpone rax>
+; immediate !( )
+: c.call3
+  Pointer eff.drop Int eff.drop Int eff.drop Int eff.drop Int eff.push
+  postpone >r11 postpone >rdx postpone >rsi postpone >rdi
+  op-r11-call
+  postpone rax>
+; immediate !( )
+: c.call4
+  Pointer eff.drop Int eff.drop Int eff.drop Int eff.drop Int eff.drop Int eff.push
+  postpone >r11 postpone >rcx postpone >rdx postpone >rsi postpone >rdi
+  op-r11-call
+  postpone rax>
+; immediate !( )
+: c.call6
+  Pointer eff.drop Int eff.drop Int eff.drop Int eff.drop Int eff.drop Int eff.drop Int eff.drop Int eff.push
+  postpone >r11 postpone >r9 postpone >r8 postpone >rcx postpone >rdx postpone >rsi postpone >rdi
+  op-r11-call
+  postpone rax>
+; immediate !( )
+: rtld-lazy 1 ;
+: rtld-now 2 ;
+: dlopen builtin.c.dlopen c.call2 ;
+: dlsym builtin.c.dlsym c.call2 ;
+: dlclose builtin.c.dlclose c.call1 ;

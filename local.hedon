@@ -1,0 +1,13 @@
+: rsp@ rsp> ; !( -- Pointer )
+: rsp! >rsp ! ; !( Pointer -- )
+: ->in ! ;
+: ->eff Int eff.push ;
+: ->
+  Int eff.drop
+  dp @ op-literal
+  postpone ->in
+  local.create local.in
+    dp @ op-literal
+    postpone @
+  local.out local.eff.attach ->eff
+; immediate !( )

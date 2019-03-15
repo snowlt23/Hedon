@@ -1,0 +1,9 @@
+: FileU newtype ;
+: File newtype ;
+: FileMode newtype ;
+: open-file 0 2 syscall3 dup 0 < ; !( Int FileMode -- FileU Int )
+: close-file 3 syscall1 Int.drop ; !( FileU -- )
+: r/o 0 ; !( -- FileMode )
+: FileU.lent Int.dup ; !( FileU -- FileU File ) impl> lent
+: read 0 syscall3 Int.drop ; !( File Pointer Int -- )
+: FileU.drop close-file ; impl> drop
