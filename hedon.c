@@ -566,6 +566,10 @@ void word_type_eff() {
   global_push_type(typet);
 }
 
+void word_quot() {
+  push_x((size_t)quott);
+}
+
 void word_type() {
   push_x((size_t)typet);
 }
@@ -838,6 +842,19 @@ void word_op() {
   write_hex((uint8_t)pop_x());
 }
 
+void word_compile() {
+  Stack* q = (Stack*)pop_x();
+  eval_quot(q);
+}
+
+void word_postcompile() {
+  imm_pop_type(quott);
+  Stack* q = (Stack*)pop_x();
+  write_x((size_t)q);
+  write_call_builtin(word_compile);
+  write_stack_increment(-8);
+}
+
 void* dlopen_x(char* libname, size_t flag) {
   fprintf(stderr, "dlopen %s %zd\n", libname, flag);
   void* h = dlopen(libname, flag);
@@ -967,6 +984,7 @@ void eval_token(Token* token) {
 
   // builtin for type def
   BUILTIN_IMM_WORD("builtin.Type.eff", word_type_eff);
+  BUILTIN_WORD("builtin.Quot", word_quot, 8, {});
   BUILTIN_WORD("builtin.Type", word_type, 8, {});
   BUILTIN_WORD("builtin.Int", word_int, 8, {});
   BUILTIN_WORD("builtin.newtype", word_newtype, 8, {});
@@ -992,6 +1010,8 @@ void eval_token(Token* token) {
   BUILTIN_WORD("s.", word_sdot, -8, {IN_EFF("Int")});
   BUILTIN_WORD("cr", word_cr, 0, {});
   BUILTIN_WORD("op", word_op, -8, {IN_EFF("Int")});
+  BUILTIN_WORD("compile", word_compile, -8, {IN_EFF("Quot")});
+  BUILTIN_IMM_WORD("postcompile", word_postcompile);
 
   // dump
   BUILTIN_WORD("dump-type", word_dump_type, 0, {});

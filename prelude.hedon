@@ -9,6 +9,7 @@
 : b paramtype ;
 : c paramtype ;
 
+: Quot builtin.Quot ; !( -- Type )
 : Int builtin.Int ; !( -- Type )
 : Pointer newtype ;
 
@@ -36,6 +37,7 @@
 : Int.swap >rax >rcx rax> rcx> ;
 : Pointer.Int.swap Int.swap ; !( Pointer Int -- Int Pointer )
 : Type.swap Int.swap ; !( Type Type -- Type Type )
+: Quot.Type.swap Int.swap ; !( Quot Type -- Type Quot )
 
 : + >rcx >rax [ 0x48 0x01 0xc8 ] X rax> ;
 : - >rcx >rax [ 0x48 0x29 0xc8 ] X rax> ;
@@ -85,3 +87,24 @@ rem syscalls
 : syscall2 >rax >rsi >rdi op-syscall rax> ;
 : syscall3 >rax >rdx >rsi >rdi op-syscall rax> ;
 : exit 60 syscall1 Int.drop ;
+
+rem dataflow
+: spill.unsafe
+  0xff op 0x33 op
+  0xff op 0x33 op
+  0x48 op 0x83 op 0xc3 op 0x08 op
+;
+: restore.unsafe
+  0x48 op 0x83 op 0xeb op 0x08 op
+  0x8f op 0x03 op
+  0x8f op 0x03 op
+;
+: dip
+  a dup eff.drop
+  spill.unsafe
+  Quot.Type.swap compile
+  [ >rax ] postcompile
+  restore.unsafe
+  [ rax> ] postcompile
+  eff.push
+; immediate

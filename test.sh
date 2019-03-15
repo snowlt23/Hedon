@@ -76,35 +76,38 @@ runtest "1 , 2 , 3 , dp@ cell p- @ ." "3"
 # runtest "var fz !( -- Pointer ) 555 fz ! fz @ ." "555"
 # runtest "var aaa !( -- Pointer ) var bbb !( -- Pointer ) 123 aaa ! 456 bbb ! aaa @ . bbb @ ." "123456"
 exittest "4 . 5 . 23 exit 6 ." "23"
-
-# control flow
-runtest ": main 0 if 4 . then 1 if 5 . then ; main" "5"
-runtest ": main 0 if 4 . then 1 if 5 . then ; dump-type main" " -- "
-runtest ": main 1 if 4 . else 5 . then 0 if 4 . else 5 . then ; main" "45"
-runtest ": main 0 if 4 else 5 then ; dump-type main main ." " -- Int5"
-runtest ": main 0 if 4 else 5 then . 6 . ; main" "56"
-errortest ": main 1 if 4 else then ; main" "Int <->  unmatch out-effect in main"
-errortest ": main 1 if . else then ; main" "Int <->  unmatch in-effect in main"
-errortest "0 : main 1 then ; main" "unmatch Int type to IfAddr in main"
-runtest ": main 0 begin dup 10 - while dup . 1 + repeat ; main" "0123456789"
-
 errortest ": main ; drop" "unresolved drop trait word in main"
 error_filetest "examples/basic-type.hedon" "unmatch MyInt type to Int in mi"
+
+# data-flow
+runtest ": main 2 3 [ 2 + ] dip ; main . ." "43"
+
+# control flow
+# runtest ": main 0 if 4 . then 1 if 5 . then ; main" "5"
+# runtest ": main 0 if 4 . then 1 if 5 . then ; dump-type main" " -- "
+# runtest ": main 1 if 4 . else 5 . then 0 if 4 . else 5 . then ; main" "45"
+# runtest ": main 0 if 4 else 5 then ; dump-type main main ." " -- Int5"
+# runtest ": main 0 if 4 else 5 then . 6 . ; main" "56"
+# errortest ": main 1 if 4 else then ; main" "Int <->  unmatch out-effect in main"
+# errortest ": main 1 if . else then ; main" "Int <->  unmatch in-effect in main"
+# errortest "0 : main 1 then ; main" "unmatch Int type to IfAddr in main"
+# runtest ": main 0 begin dup 10 - while dup . 1 + repeat ; main" "0123456789"
+
 # filetest "examples/variable.hedon" "09"
-filetest "examples/postpone.hedon" "9"
-error_filetest "examples/err.hedon" "unresolved drop trait word in main2"
+# filetest "examples/postpone.hedon" "9"
+# error_filetest "examples/err.hedon" "unresolved drop trait word in main2"
 
 # linear logic
-error_filetest "examples/linear.hedon" "unmatch FileU type to File in write-file-illegal"
+# error_filetest "examples/linear.hedon" "unmatch FileU type to File in write-file-illegal"
 
 # cffi
-runtest ": main 9 test.call1 c.call1 . ; main" "9"
-runtest ": main 1 2 test.call2 c.call2 . ; main" "-1"
-runtest ": main 1 2 3 4 5 6 test.call6 c.call6 . ; main" "-19"
+# runtest ": main 9 test.call1 c.call1 . ; main" "9"
+# runtest ": main 1 2 test.call2 c.call2 . ; main" "-1"
+# runtest ": main 1 2 3 4 5 6 test.call6 c.call6 . ; main" "-19"
 # filetest "examples/dl.hedon" "555"
 
 # local
-runtest ": dadd -> x x x + ; dump-type dadd 9 dadd ." "Int -- Int18"
+# runtest ": dadd -> x x x + ; dump-type dadd 9 dadd ." "Int -- Int18"
 
 # file
-# runtest ": main s\" ./test.txt\" r/o open-file ; main"
+# runtest ": main s\" ./test.txt\" r/o open-file ; main" ""
