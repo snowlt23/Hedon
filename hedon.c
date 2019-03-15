@@ -18,13 +18,13 @@
 
 #define debug(...) {fprintf(stderr, "L%d: ", __LINE__); fprintf(stderr, __VA_ARGS__); fprintf(stderr, "\n");}
 #define ierror(...) {fprintf(stderr, __VA_ARGS__); exit(1);}
-#define error(...) {fprintf(stderr, __VA_ARGS__); fprintf(stderr, " in %s", last_def()->name); exit(1);}
+#define error(...) {fprintf(stderr, "error in %s: ", last_def()->name); fprintf(stderr, __VA_ARGS__); fprintf(stderr, " at %s", intoken->name); exit(1);}
 
 #define spill_globaltype \
   Stack* tmpb = comp_typein; \
   Stack* tmpa = comp_typeout; \
-  comp_typein = new_stack(8); \
-  comp_typeout = new_stack(8);
+  comp_typein = new_stack(); \
+  comp_typeout = new_stack();
 #define restore_globaltype \
   comp_typein = tmpb; \
   comp_typeout = tmpa;
@@ -35,7 +35,7 @@
   codegenstate = tmpcs;
 
 #define WORDSIZE 8
-#define DEFAULT_STACKSIZE 1024
+#define DEFAULT_STACKSIZE (WORDSIZE*1024)
 
 typedef struct {
   uint8_t* s;
@@ -96,6 +96,7 @@ Stack* data;
 bool state;
 bool codegenstate;
 Stack* globaldefs;
+Token* intoken;
 
 Stack* imm_typein;
 Stack* imm_typeout;
@@ -400,15 +401,23 @@ bool global_pop_type(Type* l) {
   }
 }
 
-void apply_in(Stack* in) {
+void apply_in(Def* def, Stack* in) {
   for (int i=0; i<stacklen(in); i++) {
-    global_pop_type(get(in, i));
+    Type* t = get(in, i);
+    global_pop_type(t);
+    Def* eff = search_def(t->name);
+    if (eff == NULL) error("undefined %s word in apply-freeze", t->name);
+    if (!codegenstate && state) push(def->effects, new_eff(eff, EFF_IN));
   }
 }
 
-void apply_out(Stack* out) {
+void apply_out(Def* def, Stack* out) {
   for (int i=0; i<stacklen(out); i++) {
-    global_push_type(get(out, i));
+    Type* t = get(out, i);
+    global_push_type(t);
+    Def* eff = search_def(t->name);
+    if (eff == NULL) error("undefined %s word in apply-freeze", t->name);
+    if (!codegenstate && state) push(def->effects, new_eff(eff, EFF_OUT));
   }
 }
 
@@ -485,13 +494,23 @@ Def* solve_trait_word(Stack* defs) {
   return NULL;
 }
 
+void to_effect(Def* def, Stack* s, EffKind kind) {
+  for (int i=0; i<stacklen(s); i++) {
+    Type* t = get(s, i);
+    Def* eff = search_def(t->name);
+    if (eff == NULL) error("undefined %s word", t->name);
+    push(def->effects, new_eff(eff, kind));
+  }
+}
+
 void apply_effects(Def* def) {
   Def* wdef = last_def();
   if (def->freezein != NULL) {
-    apply_in(def->freezein);
-    apply_out(def->freezeout);
-    goto defer_eff;
+    apply_in(wdef, def->freezein);
+    apply_out(wdef, def->freezeout);
+    return;
   }
+
   for (int i=0; i<stacklen(def->effects); i++) {
     Eff* eff = get(def->effects, i);
     start_codegenstate(true);
@@ -504,7 +523,7 @@ void apply_effects(Def* def) {
     if (eff->kind == EFF_IN) global_pop_type(t);
     else global_push_type(t);
   }
-defer_eff:
+
   if (!codegenstate) {
     for (int i=0; i<stacklen(def->effects); i++) {
       Eff* eff = get(def->effects, i);
@@ -595,6 +614,8 @@ void word_def() {
   if (can_freeze(comp_typein) && can_freeze(comp_typeout)) {
     def->freezein = freeze(comp_typein);
     def->freezeout = freeze(comp_typeout);
+  } else {
+    def->template = true;
   }
   // store inferred typestack for write
   comp_typeout = rev_stack(comp_typein);
@@ -610,6 +631,8 @@ void word_def() {
 
   restore_globaltype;
   state = false;
+
+  // debug("%s %d", def->name, def->template);
 }
 
 void word_typeid() {
@@ -637,7 +660,7 @@ void word_paramtype() {
   char* name = last_def()->name;
   write_x((size_t)name);
   write_call_builtin(word_paramtype_in);
-  // write_stack_increment(8);
+  // write_stack_increment(0);
 }
 
 void word_eff_push() {
@@ -664,7 +687,7 @@ void word_immediate() {
 
 void word_trait() {
   Def* def = last_def();
-  def->traitwords = new_stack(32);
+  def->traitwords = new_stack();
 }
 
 void word_impl() {
@@ -735,6 +758,13 @@ void dump_typestack(FILE* f, Stack* s) {
     Type* t = get(s, i);
     fprintf(f, " %s", t->name);
   }
+}
+
+void word_dump_comp_typestack() {
+  dump_typestack(stdout, comp_typein);
+  printf(" -- ");
+  dump_typestack(stdout, comp_typeout);
+  fflush(stdout);
 }
 
 void word_dump_imm_typestack() {
@@ -924,6 +954,7 @@ void eval_quot(Stack* s) {
 }
 
 void eval_token(Token* token) {
+  intoken = token;
   if (token->kind == TOKEN_QUOT) {
     imm_push_type(quott);
     push_x((size_t)token->quot);
@@ -1016,6 +1047,7 @@ void eval_token(Token* token) {
   // dump
   BUILTIN_WORD("dump-type", word_dump_type, 0, {});
   BUILTIN_WORD("dump-effect", word_dump_effect, 0, {});
+  BUILTIN_WORD("dump-comp-typestack", word_dump_comp_typestack, 0, {});
   BUILTIN_WORD("dump-imm-typestack", word_dump_imm_typestack, 0, {});
 
   // cffi
@@ -1042,9 +1074,9 @@ void imm_eval_token(Token* t) {
 
 void startup(size_t buffersize, size_t dpsize, size_t cpsize, size_t datasize) {
   buffer = malloc(buffersize);
-  dp = (uint8_t*)jit_memalloc(cpsize);
+  dp = (uint8_t*)jit_memalloc(dpsize);
   cp = (uint8_t*)jit_memalloc(cpsize);
-  data = new_stack(datasize);
+  data = new_stack_cap(datasize);
   state = false;
   codegenstate = true;
 

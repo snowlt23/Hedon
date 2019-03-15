@@ -76,8 +76,8 @@ runtest "1 , 2 , 3 , dp@ cell p- @ ." "3"
 # runtest "var fz !( -- Pointer ) 555 fz ! fz @ ." "555"
 # runtest "var aaa !( -- Pointer ) var bbb !( -- Pointer ) 123 aaa ! 456 bbb ! aaa @ . bbb @ ." "123456"
 exittest "4 . 5 . 23 exit 6 ." "23"
-errortest ": main ; drop" "unresolved drop trait word in main"
-error_filetest "examples/basic-type.hedon" "unmatch MyInt type to Int in mi"
+errortest ": main ; drop" "error in main: unresolved drop trait word at drop"
+error_filetest "examples/basic-type.hedon" "error in mi: unmatch MyInt type to Int at +"
 
 # data-flow
 runtest ": main 2 3 [ 2 + ] dip ; main . ." "34"
@@ -87,6 +87,8 @@ runtest ": main 4 3 1 [ + ] [ + ] bi ; main . ." "54"
 runtest ": main 1 2 [ 2 + ] bi@ ; main . ." "34"
 
 # control flow
+runtest ": main 8 0 [ 4 . ] when ; main ." "8"
+runtest ": main 8 1 [ 4 . ] when ; main ." "48"
 # runtest ": main 0 if 4 . then 1 if 5 . then ; main" "5"
 # runtest ": main 0 if 4 . then 1 if 5 . then ; dump-type main" " -- "
 # runtest ": main 1 if 4 . else 5 . then 0 if 4 . else 5 . then ; main" "45"
