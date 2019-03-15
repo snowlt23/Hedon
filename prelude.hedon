@@ -22,6 +22,7 @@
 
 : grow [ 0x48 0x83 0xeb 0x08 ] X ; !( -- Int )
 : Int.drop [ 0x48 0x83 0xc3 0x08 ] X ; !( Int ) impl> drop
+: Type.drop [ 0x48 0x83 0xc3 0x08 ] X ; !( Type ) impl> drop
 : >rax [ 0x48 0x8b 0x03 ] X Int.drop ;
 : >rcx [ 0x48 0x8b 0x0b ] X Int.drop ;
 : >rdx [ 0x48 0x8b 0x13 ] X Int.drop ;
@@ -34,9 +35,11 @@
 : Int.dup >rax grow rax> ; impl> dup
 : Type.dup Int.dup ; !( Type -- Type Type ) impl> dup
 : Pointer.dup Int.dup ; !( Pointer -- Pointer Pointer ) impl> dup
+: Quot.dup Int.dup ; !( Quot -- Quot Quot ) impl> dup
 : Int.swap >rax >rcx rax> rcx> ;
 : Pointer.Int.swap Int.swap ; !( Pointer Int -- Int Pointer )
 : Type.swap Int.swap ; !( Type Type -- Type Type )
+: Quot.swap Int.swap ; !( Quot Quot -- Quot Quot )
 : Quot.Type.swap Int.swap ; !( Quot Type -- Type Quot )
 
 : + >rcx >rax [ 0x48 0x01 0xc8 ] X rax> ;
@@ -89,22 +92,41 @@ rem syscalls
 : exit 60 syscall1 Int.drop ;
 
 rem dataflow
-: spill.unsafe
-  0xff op 0x33 op
-  0xff op 0x33 op
-  0x48 op 0x83 op 0xc3 op 0x08 op
-;
-: restore.unsafe
-  0x48 op 0x83 op 0xeb op 0x08 op
-  0x8f op 0x03 op
-  0x8f op 0x03 op
-;
+: spill.unsafe 0xff op 0x33 op 0xff op 0x33 op ;
+: drop.unsafe 0x48 op 0x83 op 0xc3 op 0x08 op ;
+: restore.unsafe 0x8f op 0x03 op 0x8f op 0x03 op ;
+: grow.unsafe 0x48 op 0x83 op 0xeb op 0x08 op ;
+: swap.unsafe [ >rcx >rax rcx> rax> ] postcompile ;
 : dip
   a dup eff.drop
+  spill.unsafe drop.unsafe
+  Quot.Type.swap compile
+  grow.unsafe restore.unsafe
+  eff.push
+; immediate
+: keep
+  a dup eff.drop dup eff.push
   spill.unsafe
   Quot.Type.swap compile
-  [ >rax ] postcompile
-  restore.unsafe
-  [ rax> ] postcompile
+  grow.unsafe restore.unsafe
   eff.push
+; immediate
+: bi
+  Quot.swap
+  a dup eff.drop
+  dup eff.push
+  spill.unsafe
+  Quot.Type.swap compile
+  dup eff.push
+  grow.unsafe restore.unsafe
+  Quot.Type.swap compile
+  drop
+; immediate
+: bi@
+  Quot.dup
+  swap.unsafe
+  spill.unsafe drop.unsafe
+  compile
+  grow.unsafe restore.unsafe
+  compile
 ; immediate

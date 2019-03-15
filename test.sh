@@ -80,7 +80,11 @@ errortest ": main ; drop" "unresolved drop trait word in main"
 error_filetest "examples/basic-type.hedon" "unmatch MyInt type to Int in mi"
 
 # data-flow
-runtest ": main 2 3 [ 2 + ] dip ; main . ." "43"
+runtest ": main 2 3 [ 2 + ] dip ; main . ." "34"
+runtest ": main 3 4 [ + ] keep ; main . ." "47"
+runtest ": main 1 [ 2 + ] [ 3 + ] bi ; main . ." "43"
+runtest ": main 4 3 1 [ + ] [ + ] bi ; main . ." "54"
+runtest ": main 1 2 [ 2 + ] bi@ ; main . ." "34"
 
 # control flow
 # runtest ": main 0 if 4 . then 1 if 5 . then ; main" "5"
