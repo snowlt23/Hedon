@@ -17,10 +17,10 @@ var sdl.blit-surface.ptr !( -- Pointer )
 var sdl.get-window-surface.ptr !( -- Pointer )
 var sdl.update-window-surface.ptr !( -- Pointer )
 
-: sdl.open-shared "libSDL2.so" rtld-lazy dlopen sdl.shared ! ;
+: sdl.open-shared "libSDL2.so" rtld-lazy dlopen sdl.shared p! ;
 : sdl.check-shared sdl.shared @ 0 eq [ "Unable to load libSDL2.so" .s 1 exit ] when ;
 : sdl.check-sym @ 0 eq [ "Unable to load sdl symbol" .s 1 exit ] when ;
-: sdl.load-sym.unsafe sdl.shared @ Int.swap dlsym Pointer.Int.swap ! ;
+: sdl.load-sym.unsafe sdl.shared p@ swap dlsym swap p! ;
 : sdl.load-sym [ dup ] dip sdl.load-sym.unsafe sdl.check-sym ;
 : sdl.init-shared
   sdl.open-shared sdl.check-shared
@@ -71,19 +71,14 @@ rem : sdl.windowpos-undefined 0x1fff0000 ;
 : sdl.quit-event 0x100 ;
 : sdl.default-pos sdl.windowpos-undefined sdl.windowpos-undefined ;
 
-: sdl.get-error
-  sdl.get-error.ptr p@ c.call0
-;
-: print-error
-  sdl.get-error .s cr
-;
+: sdl.get-error sdl.get-error.ptr p@ c.call0 ; !( -- Cstr )
 : sdl.init
   sdl.init-shared
-  sdl.init.ptr p@ c.call1 to-bool [ print-error ] when
+  sdl.init.ptr p@ c.call1 to-bool [ sdl.get-error .s ] when
 ;
 : sdl.poll-event sdl.poll-event.ptr p@ c.call1 ; !( sdl.Event -- Bool )
 : sdl.quit sdl.quit.ptr p@ c.call0 Int.drop ;
-: sdl.create-window sdl.create-window.ptr p@ c.call6 ; !( Int Int Int Int Int Int -- sdl.WindowU )
+: sdl.create-window sdl.create-window.ptr p@ c.call6 ; !( Cstr Int Int Int Int Int -- sdl.WindowU )
 : sdl.destroy-window.unsafe sdl.destroy-window.ptr p@ c.call1 Int.drop ; !( sdl.WindowU -- )
 : sdl.update-window-surface sdl.update-window-surface.ptr p@ c.call1 Int.drop ; !( sdl.Window )
 : sdl.WindowU.lent Int.dup ; !( sdl.WindowU -- sdl.WindowU sdl.Window ) impl> lent
@@ -96,8 +91,8 @@ rem : sdl.windowpos-undefined 0x1fff0000 ;
 : sdl.render-copy sdl.render-copy.ptr p@ c.call4 Int.drop ; !( sdl.Renderer sdl.Texture Pointer Pointer )
 : sdl.render-present sdl.render-present.ptr p@ c.call1 Int.drop ; !( sdl.Renderer )
 
-: sdl.rw-from-file sdl.rw-from-file.ptr p@ c.call2 ;
-: sdl.load-bmp "rb" sdl.rw-from-file 1 sdl.load-bmp-rw.ptr p@ c.call2 dup 0 eq ; !( Int -- sdl.SurfaceU Bool )
+: sdl.rw-from-file sdl.rw-from-file.ptr p@ c.call2 ; !( Cstr Cstr -- Int )
+: sdl.load-bmp "rb" sdl.rw-from-file 1 sdl.load-bmp-rw.ptr p@ c.call2 dup 0 eq ; !( Cstr -- sdl.SurfaceU Bool )
 : sdl.free-surface.unsafe sdl.free-surface.ptr p@ c.call1 Int.drop ; !( sdl.SurfaceU -- )
 : sdl.SurfaceU.lent Int.dup ; !( sdl.SurfaceU -- sdl.SurfaceU sdl.Surface ) impl> lent
 : sdl.SurfaceU.drop sdl.free-surface.unsafe ; impl> drop
@@ -109,7 +104,7 @@ rem : sdl.windowpos-undefined 0x1fff0000 ;
 : sdl.TextureU.lent Int.dup ; !( sdl.TextureU -- sdl.TextureU sdl.Texture ) impl> lent
 : sdl.TextureU.drop sdl.destroy-texture.unsafe ; impl> drop
 
-: null 0 ; !( -- Pointer )
+rem ------ examples ------
 
 var window.ptr !( -- Pointer )
 : window@ window.ptr @ ; !( -- sdl.Window )
@@ -120,6 +115,9 @@ var renderer.ptr !( -- Pointer )
 : renderer@ renderer.ptr @ ; !( -- sdl.Renderer )
 : renderer! renderer.ptr ! ; !( sdl.RendererU -- )
 
+: print-error
+  sdl.get-error .s cr
+;
 : create-window "SDL in Hedon" sdl.default-pos 311 400 0 sdl.create-window ;
 : init
   sdl.init-video sdl.init
@@ -133,13 +131,13 @@ var renderer.ptr !( -- Pointer )
 : isquit lent sdl.Event.type sdl.quit-event eq ;
 : quit sdl.TextureU.drop sdl.SurfaceU.drop window.drop sdl.quit ;
 
-: Texture.Renderer.swap Int.swap ; !( sdl.Texture sdl.Renderer -- sdl.Renderer sdl.Texture )
-: Surface.Renderer.swap Int.swap ; !( sdl.Surface sdl.Renderer -- sdl.Renderer sdl.Surface )
+: Texture.Renderer.swap Int.swap ; !( sdl.Texture sdl.Renderer -- sdl.Renderer sdl.Texture ) impl> swap
+: Surface.Renderer.swap Int.swap ; !( sdl.Surface sdl.Renderer -- sdl.Renderer sdl.Surface ) impl> swap
 : new-tex
-  lent renderer@ Surface.Renderer.swap sdl.create-texture-from-surface
+  lent renderer@ swap sdl.create-texture-from-surface
 ;
 : load-scene "./image.bmp" load-bmp new-tex ;
-: draw-scene lent renderer@ Texture.Renderer.swap null null sdl.render-copy ;
+: draw-scene lent renderer@ swap null null sdl.render-copy ;
 : draw draw-scene renderer@ sdl.render-present update-screen ;
 
 : iscontinue poll [ isquit not ] dip ;

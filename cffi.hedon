@@ -49,6 +49,6 @@
 
 : rtld-lazy 1 ;
 : rtld-now 2 ;
-: dlopen builtin.c.dlopen c.call2 ;
-: dlsym builtin.c.dlsym c.call2 ;
-: dlclose builtin.c.dlclose c.call1 ;
+: dlopen builtin.c.dlopen c.call2 ; !( Cstr Int -- Pointer )
+: dlsym builtin.c.dlsym c.call2 ; !( Pointer Cstr -- Pointer )
+: dlclose builtin.c.dlclose c.call1 ; !( Pointer )

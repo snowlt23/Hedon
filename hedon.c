@@ -153,6 +153,7 @@ size_t typeid;
 Type* quott;
 Type* typet;
 Type* intt;
+Type* cstrt;
 
 //
 // prototypes
@@ -614,6 +615,14 @@ void add_int_effect() {
   push(wdef->effects, new_eff(eff, EFF_OUT));
 }
 
+void add_cstr_effect() {
+  if (codegenstate) return;
+  Def* eff = search_def("Cstr");
+  if (eff == NULL) error("undefined Cstr word");
+  Def* wdef = last_def();
+  push(wdef->effects, new_eff(eff, EFF_OUT));
+}
+
 void word_type_eff() {
   global_push_type(typet);
 }
@@ -628,6 +637,10 @@ void word_type() {
 
 void word_int() {
   push_x((size_t)intt);
+}
+
+void word_cstr() {
+  push_x((size_t)cstrt);
 }
 
 void word_def() {
@@ -1081,7 +1094,7 @@ void eval_token(Token* token) {
   }
   
   if (token->name[0] == '"') {
-    global_push_type(intt);
+    global_push_type(cstrt);
     char* s = token->name+1;
     size_t p = (size_t)dp;
     for (;;) {
@@ -1095,6 +1108,7 @@ void eval_token(Token* token) {
     *dp = '\0';
     dp++;
     if (state) {
+      add_cstr_effect();
       write_x(p);
     } else {
       push_x(p);
@@ -1128,6 +1142,7 @@ void eval_token(Token* token) {
   BUILTIN_WORD("builtin.Quot", word_quot, 8, {});
   BUILTIN_WORD("builtin.Type", word_type, 8, {});
   BUILTIN_WORD("builtin.Int", word_int, 8, {});
+  BUILTIN_WORD("builtin.Cstr", word_cstr, 8, {});
   BUILTIN_WORD("builtin.newtype", word_newtype, 8, {});
   BUILTIN_WORD("builtin.paramtype", word_paramtype, 8, {});
 
@@ -1150,7 +1165,7 @@ void eval_token(Token* token) {
   BUILTIN_WORD("builtin.dp", word_dp, 8, {OUT_EFF("Int")});
   BUILTIN_WORD("builtin.cp", word_cp, 8, {OUT_EFF("Int")});
   BUILTIN_WORD(".", word_dot, -8, {IN_EFF("Int")});
-  BUILTIN_WORD(".s", word_dots, -8, {IN_EFF("Int")});
+  BUILTIN_WORD(".s", word_dots, -8, {IN_EFF("Cstr")});
   BUILTIN_WORD("cr", word_cr, 0, {});
   BUILTIN_WORD("op", word_op, -8, {IN_EFF("Int")});
   BUILTIN_WORD("fixup-op", word_fixup_op, -16, {IN_EFF("Int", "Pointer")});
@@ -1206,6 +1221,7 @@ void startup(size_t buffersize, size_t dpsize, size_t cpsize, size_t datasize) {
   quott = generate_type("Quot");
   typet = generate_type("Type");
   intt = generate_type("Int");
+  cstrt = generate_type("Cstr");
 }
 
 void read_buffer(FILE* f) {
