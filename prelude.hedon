@@ -13,6 +13,11 @@
 : Int builtin.Int ; !( -- Type )
 : Bool newtype ;
 : Pointer newtype ;
+: EffSave newtype ;
+
+: eff.save builtin.eff.save ; !( -- EffSave )
+: eff.load builtin.eff.load ; !( EffSave -- )
+: eff.check builtin.eff.check ; !( EffSave EffSave -- )
 
 : to-int ; !( Pointer -- Int )
 : to-bool ; !( Int -- Bool )
@@ -43,6 +48,7 @@
 : Type.dup Int.dup ; !( Type -- Type Type ) impl> dup
 : Pointer.dup Int.dup ; !( Pointer -- Pointer Pointer ) impl> dup
 : Quot.dup Int.dup ; !( Quot -- Quot Quot ) impl> dup
+: EffSave.dup Int.dup ; !( EffSave -- EffSave EffSave ) impl> dup
 : Int.swap >rax >rcx rax> rcx> ;
 : Pointer.swap Int.swap ; !( Pointer Pointer -- Pointer Pointer )
 : Pointer.Int.swap Int.swap ; !( Pointer Int -- Int Pointer )
@@ -228,7 +234,22 @@ rem controlflow
 ;
 : when
   Bool eff.drop
-  write-when [ compile ] dip fixup-by-here
+  eff.save dup
+  write-when [ compile ] 3dip fixup-by-here
+  eff.save eff.check eff.load
+; immediate
+
+: write-else
+  write-when [ compile ] dip 0xe9 op 0 op-lendian32 fixup-by-here cp p@ 4 p-
+;
+: if
+  Bool eff.drop
+  Quot.swap
+  eff.save
+  [ write-else ] dip
+  eff.save [ eff.load ] dip
+  [ compile ] 2dip [ fixup-by-here ] dip
+  eff.save eff.check
 ; immediate
 
 : write-while

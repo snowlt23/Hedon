@@ -89,6 +89,11 @@ typedef struct _Def {
   bool template;
 } Def;
 
+typedef struct {
+  Stack* in;
+  Stack* out;
+} EffSave;
+
 char* buffer;
 uint8_t* dp;
 uint8_t* cp;
@@ -114,6 +119,7 @@ Type* intt;
 void call_word_asm(uint8_t** spp, uint8_t* wp);
 
 Token* parse_token();
+void dump_typestack(FILE* f, Stack* s);
 void typing_quot(Stack* t);
 void codegen_quot(Stack* t);
 void eval_quot(Stack* t);
@@ -263,6 +269,13 @@ bool can_freeze(Stack* s) {
 
 Stack* freeze(Stack* s) {
   return dup_stack(s);
+}
+
+EffSave* save_inout(Stack* in, Stack* out) {
+  EffSave* save = malloc(sizeof(EffSave));
+  save->in = in;
+  save->out = out;
+  return save;
 }
 
 //
@@ -680,6 +693,23 @@ void word_eff_dup() {
   global_push_type(t);
 }
 
+void word_eff_save() {
+  push_x((size_t)save_inout(dup_stack(comp_typein), dup_stack(comp_typeout)));
+}
+
+void word_eff_load() {
+  EffSave* save = (EffSave*)pop_x();
+  comp_typein = save->in;
+  comp_typeout = save->out;
+}
+
+void word_eff_check() {
+  EffSave* b = (EffSave*)pop_x();
+  EffSave* a = (EffSave*)pop_x();
+  if (!eq_typestack(a->in, b->in)) {dump_typestack(stderr, a->in); fprintf(stderr, " <-> "); dump_typestack(stderr, b->in); fprintf(stderr, " "); error("unmatch in-effect");}
+  if (!eq_typestack(a->out, b->out)) {dump_typestack(stderr, a->out); fprintf(stderr, " <-> "); dump_typestack(stderr, b->out); fprintf(stderr, " "); error("unmatch out-effect");}
+}
+
 void word_immediate() {
   Def* def = last_def();
   def->immediate = true;
@@ -873,8 +903,10 @@ void word_op() {
 }
 
 void word_compile() {
+  Token* tmpintoken = intoken;
   Stack* q = (Stack*)pop_x();
   eval_quot(q);
+  intoken = tmpintoken;
 }
 
 void word_postcompile() {
@@ -1025,6 +1057,9 @@ void eval_token(Token* token) {
   BUILTIN_WORD("builtin.eff.push", word_eff_push, -8, {});
   BUILTIN_WORD("builtin.eff.drop", word_eff_drop, -8, {});
   BUILTIN_WORD("builtin.eff.dup", word_eff_dup, -8, {});
+  BUILTIN_WORD("builtin.eff.save", word_eff_save, 8, {});
+  BUILTIN_WORD("builtin.eff.load", word_eff_load, -8, {});
+  BUILTIN_WORD("builtin.eff.check", word_eff_check, -16, {});
 
   // builtin words
   BUILTIN_IMM_WORD("rem", word_rem);
