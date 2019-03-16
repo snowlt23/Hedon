@@ -7,6 +7,7 @@ var sdl.create-window.ptr !( -- Pointer )
 var sdl.destroy-window.ptr !( -- Pointer )
 var sdl.create-renderer.ptr !( -- Pointer )
 var sdl.create-texture-from-surface.ptr !( -- Pointer )
+var sdl.destroy-texture.ptr !( -- Pointer )
 var sdl.render-copy.ptr !( -- Pointer )
 var sdl.render-present.ptr !( -- Pointer )
 var sdl.load-bmp-rw.ptr !( -- Pointer )
@@ -29,6 +30,7 @@ rem : sdl.check-sym @ if else 8585 . cr 1 exit then ;
   sdl.destroy-window.ptr "SDL_DestroyWindow" sdl.load-sym
   sdl.create-renderer.ptr "SDL_CreateRenderer" sdl.load-sym
   sdl.create-texture-from-surface.ptr "SDL_CreateTextureFromSurface" sdl.load-sym
+  sdl.destroy-texture.ptr "SDL_DestroyTexture" sdl.load-sym
   sdl.render-copy.ptr "SDL_RenderCopy" sdl.load-sym
   sdl.render-present.ptr "SDL_RenderPresent" sdl.load-sym
   sdl.load-bmp-rw.ptr "SDL_LoadBMP_RW" sdl.load-sym
@@ -78,7 +80,7 @@ rem : sdl.windowpos-undefined 0x1fff0000 ;
   rem sdl.init.ptr p@ c.call1 if print-error then
   sdl.init.ptr p@ c.call1 Int.drop
 ;
-: sdl.poll-event sdl.poll-event.ptr p@ c.call1 ; !( sdl.Event -- Int )
+: sdl.poll-event sdl.poll-event.ptr p@ c.call1 ; !( sdl.Event -- Bool )
 : sdl.quit sdl.quit.ptr p@ c.call0 Int.drop ;
 : sdl.create-window sdl.create-window.ptr p@ c.call6 ; !( Int Int Int Int Int Int -- sdl.WindowU )
 : sdl.destroy-window.unsafe sdl.destroy-window.ptr p@ c.call1 Int.drop ; !( sdl.WindowU -- )
@@ -101,8 +103,10 @@ rem : sdl.windowpos-undefined 0x1fff0000 ;
 : sdl.SurfaceU.ret ; !( sdl.SurfaceU -- sdl.SurfaceU )
 : sdl.SurfaceU.dummy ; !( -- sdl.SurfaceU )
 
+: sdl.destroy-texture.unsafe sdl.destroy-texture.ptr p@ c.call1 Int.drop ; !( sdl.TextureU -- )
 : sdl.RendererU.lent Int.dup ; !( sdl.RendererU -- sdl.RendererU sdl.Renderer ) impl> lent
 : sdl.TextureU.lent Int.dup ; !( sdl.TextureU -- sdl.TextureU sdl.Texture ) impl> lent
+: sdl.TextureU.drop sdl.destroy-texture.unsafe ; impl> drop
 
 : null 0 ; !( -- Pointer )
 
@@ -126,36 +130,32 @@ var renderer.ptr !( -- Pointer )
 
 : poll lent sdl.poll-event ;
 : isquit lent sdl.Event.type sdl.quit-event eq ;
-: quit sdl.SurfaceU.drop window.drop sdl.quit 0 exit ;
+: quit sdl.TextureU.drop sdl.SurfaceU.drop window.drop sdl.quit ;
 
 : Texture.Renderer.swap Int.swap ; !( sdl.Texture sdl.Renderer -- sdl.Renderer sdl.Texture )
 : Surface.Renderer.swap Int.swap ; !( sdl.Surface sdl.Renderer -- sdl.Renderer sdl.Surface )
-: load-scene "./image.bmp" load-bmp lent renderer@ Surface.Renderer.swap sdl.create-texture-from-surface ;
+: new-tex
+  lent renderer@ Surface.Renderer.swap sdl.create-texture-from-surface
+;
+: load-scene "./image.bmp" load-bmp new-tex ;
 : draw-scene lent renderer@ Texture.Renderer.swap null null sdl.render-copy ;
 : draw draw-scene renderer@ sdl.render-present update-screen ;
 
-rem : event isquit if sdl.EventU.drop quit sdl.SurfaceU.dummy else sdl.EventU.drop sdl.SurfaceU.ret then ;
-rem : event-loop
-rem   begin
-rem     sdl.Event.init 
-rem     poll
-rem   while
-rem     event
-rem   repeat
-rem ;
-rem : update event-loop ;
-
-: main
-  init
-  load-scene
-  draw
+: iscontinue poll [ isquit not ] dip ;
+: event-loop
+  sdl.Event.init [ iscontinue ] [ drop ] while
+  [ sdl.EventU.drop ] dip
 ;
-main
+: update [ event-loop ] [ draw ] while ;
 
 rem : main
 rem   init
 rem   load-scene
-rem   begin 1 while
-rem     update
-rem   repeat
-rem ; main
+rem   draw
+rem ;
+rem main
+
+: main
+  init load-scene update quit
+;
+main

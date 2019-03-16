@@ -16,8 +16,8 @@
 : Pointer newtype ;
 : EffSave newtype ;
 
-: cp builtin.cp ; !( -- Pointer )
-
+: eff.save-out builtin.eff.save-out ; !( -- EffSave )
+: eff.load-out builtin.eff.load-out ; !( EffSave -- )
 : eff.save builtin.eff.save ; !( -- EffSave )
 : eff.load builtin.eff.load ; !( EffSave -- )
 : eff.check builtin.eff.check ; !( EffSave EffSave -- )
@@ -27,7 +27,8 @@
 : true 1 ; !( -- Bool )
 : false 0 ; !( -- Bool )
 : cell 8 ;
-: b. . ; !( Bool -- )
+: null 0 ; !( -- Pointer )
+: .b . ; !( Bool -- )
 
 : drop.eff a eff.drop ;
 : dup.eff a eff.dup ;
@@ -36,6 +37,7 @@
 
 : grow [ 0x48 0x83 0xeb 0x08 ] X ; !( -- Int )
 : Int.drop [ 0x48 0x83 0xc3 0x08 ] X ; !( Int ) impl> drop
+: Bool.drop Int.drop ; !( Bool ) impl> drop
 : Pointer.drop Int.drop ; !( Pointer ) impl> drop
 : Type.drop [ 0x48 0x83 0xc3 0x08 ] X ; !( Type ) impl> drop
 : >rax [ 0x48 0x8b 0x03 ] X Int.drop ;
@@ -95,8 +97,8 @@
 : @ >rax [ 0x48 0x8b 0x00 ] X rax> ; !( Pointer -- Int )
 : u32@ >rax [ 0x8b 0x00 ] X rax> ; !( Pointer -- Int )
 : ! >rax >rcx [ 0x48 0x89 0x08 ] X ; !( Int Pointer -- )
-: p@ >rax [ 0x48 0x8b 0x00 ] X rax> ; !( Pointer -- Pointer )
-: p! >rax >rcx [ 0x48 0x89 0x08 ] X ; !( Pointer Pointer -- )
+: p@ @ ; !( Pointer -- Pointer )
+: p! ! ; !( Pointer Pointer -- )
 : c! >rax >rcx [ 0x88 0x08 ] X ; !( Int Pointer -- )
 : Int.pick3.eff
   b dup eff.drop
@@ -106,6 +108,10 @@
 ;
 : Int.pick3 sp@ cell cell + cell + p+ @ ; eff.attach Int.pick3.eff
 : +! dup @ Int.pick3 + Pointer.Int.swap ! Int.drop ;
+
+: cp builtin.cp ; !( -- Pointer )
+: cp@ cp p@ ;
+
 
 rem syscalls
 : write-syscall 0x0f op 0x05 op ; immediate
@@ -200,7 +206,7 @@ rem dataflow
 rem op
 
 : take-byte shr 0xff band ;
-: fixup-byte take-byte Pointer.Int.swap c! ;
+: fixup-byte take-byte Pointer.Int.swap fixup-op ;
 : next-byte [ 1 p+ ] dip ;
 : fixup-lendian32
   [ 0 fixup-byte ] 2keep next-byte
@@ -229,7 +235,7 @@ rem op
 : get-rel cp @ Int.swap - ;
 : fixup-to-end 4 p+ to-int ;
 : fixup-by-here dup fixup-to-end get-rel fixup-lendian32 ;
-: write-to-here to-int cp p@ fixup-to-end - op-lendian32 ;
+: write-to-here to-int cp@ fixup-to-end - op-lendian32 ;
 
 rem meta
 
@@ -243,7 +249,7 @@ rem meta
 
 rem controlflow
 
-: write-je 0x0f op 0x84 op cp p@ 0 op-lendian32 ;
+: write-je 0x0f op 0x84 op cp@ 0 op-lendian32 ;
 : write-when
   0x48 op 0x8b op 0x03 op         rem mov rax [rbx]
   0x48 op 0x83 op 0xc3 op 0x08 op rem add rbx 8
@@ -258,7 +264,7 @@ rem controlflow
 ; immediate
 
 : write-else
-  write-when [ compile ] dip 0xe9 op 0 op-lendian32 fixup-by-here cp p@ 4 p-
+  write-when [ compile ] dip 0xe9 op 0 op-lendian32 fixup-by-here cp@ 4 p-
 ;
 : if
   Bool eff.drop
@@ -269,6 +275,7 @@ rem controlflow
   [ compile ] 2dip [ fixup-by-here ] dip
   eff.save eff.check
 ; immediate
+: not [ false ] [ true ] if ;
 
 : write-while
   0x48 op 0x8b op 0x03 op         rem mov rax [rbx]
@@ -277,11 +284,14 @@ rem controlflow
   write-je
 ;
 : while
-  cp p@
+  cp@
   [ Quot.swap compile ] dip
   Bool eff.drop
   write-while
-  [ compile ] 2dip 0xe9 op
+  eff.save-out
+  [ compile ] 3dip 0xe9 op
+  eff.load-out
   Pointer.swap write-to-here
   fixup-by-here
 ; immediate
+

@@ -713,6 +713,13 @@ void word_eff_dup() {
   global_push_type(t);
 }
 
+void word_eff_save_out() {
+  push_x((size_t)dup_stack(comp_typeout));
+}
+void word_eff_load_out() {
+  comp_typeout = (Stack*)pop_x();
+}
+
 void word_eff_save() {
   push_x((size_t)save_inout(dup_stack(comp_typein), dup_stack(comp_typeout)));
 }
@@ -922,6 +929,12 @@ void word_cr() {
 void word_op() {
   write_hex((uint8_t)pop_x());
 }
+void word_fixup_op() {
+  if (!codegenstate) return;
+  uint8_t* p = (uint8_t*)pop_x();
+  uint8_t x = (uint8_t)pop_x();
+  *p = x;
+}
 
 void word_compile() {
   Token* tmpintoken = intoken;
@@ -1122,6 +1135,8 @@ void eval_token(Token* token) {
   BUILTIN_WORD("builtin.eff.push", word_eff_push, -8, {});
   BUILTIN_WORD("builtin.eff.drop", word_eff_drop, -8, {});
   BUILTIN_WORD("builtin.eff.dup", word_eff_dup, -8, {});
+  BUILTIN_WORD("builtin.eff.save-out", word_eff_save_out, 8, {});
+  BUILTIN_WORD("builtin.eff.load-out", word_eff_load_out, -8, {});
   BUILTIN_WORD("builtin.eff.save", word_eff_save, 8, {});
   BUILTIN_WORD("builtin.eff.load", word_eff_load, -8, {});
   BUILTIN_WORD("builtin.eff.check", word_eff_check, -16, {});
@@ -1138,6 +1153,7 @@ void eval_token(Token* token) {
   BUILTIN_WORD(".s", word_dots, -8, {IN_EFF("Int")});
   BUILTIN_WORD("cr", word_cr, 0, {});
   BUILTIN_WORD("op", word_op, -8, {IN_EFF("Int")});
+  BUILTIN_WORD("fixup-op", word_fixup_op, -16, {IN_EFF("Int", "Pointer")});
   BUILTIN_WORD("compile", word_compile, -8, {IN_EFF("Quot")});
   BUILTIN_WORD("literal", word_literal, 0, {IN_EFF("Int"); OUT_EFF("Token")});
   BUILTIN_WORD("quot", word_token_to_quot, 0, {IN_EFF("Token"); OUT_EFF("Quot")});
@@ -1231,7 +1247,7 @@ void load_core() {
 }
 
 int main(int argc, char** argv) {
-  startup(1024*1024, 1024*1024, 1024*1024, 1024*1024);
+  startup(1024*1024, 1024*10, 1024*1024, 1024*1024);
 
   load_core();
 
