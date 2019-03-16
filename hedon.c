@@ -34,10 +34,12 @@
 #define end_codegenstate() \
   codegenstate = tmpcs;
 
-#define BUILTIN_EFF(arr, d, kind, ...) \
+#define IN_FOR(arr) for (int i=sizeof(arr)/sizeof(char*)-1; i>=0; i--)
+#define OUT_FOR(arr) for (int i=0; i<sizeof(arr)/sizeof(char*); i++)
+#define BUILTIN_EFF(arr, d, kind, fr, ...) \
   Def* d = last_def(); \
   char* arr[] = {__VA_ARGS__}; \
-  for (int i=0; i<sizeof(arr)/sizeof(char*); i++) { \
+  fr { \
     Def* eff = search_def(arr[i]); \
     if (eff == NULL) error("undefined %s eff-word", arr[i]); \
     call_word(eff->wp); \
@@ -49,8 +51,8 @@
     else global_push_type(t); \
     push(d->effects, new_eff(eff, kind)); \
   }
-#define IN_EFF(...) BUILTIN_EFF(inarr, indef, EFF_IN, __VA_ARGS__)
-#define OUT_EFF(...) BUILTIN_EFF(outarr, outdef, EFF_OUT, __VA_ARGS__)
+#define IN_EFF(...) BUILTIN_EFF(inarr, indef, EFF_IN, IN_FOR(inarr), __VA_ARGS__)
+#define OUT_EFF(...) BUILTIN_EFF(outarr, outdef, EFF_OUT, OUT_FOR(outarr), __VA_ARGS__)
 #define BUILTIN_WORD(s, f, stackinc, tdecl) \
   if (strcmp(token->name, s) == 0) { \
     tdecl; \
@@ -878,7 +880,22 @@ void word_rem() {
 }
 
 void word_parse_token() {
+  if (state) error("parse-token can only toplevel in currently");
   push_x((size_t)parse_token());
+}
+
+void word_create_def() {
+  Token* n = (Token*)pop_x();
+  Stack* q = (Stack*)pop_x();
+  Def* def = new_def();
+  push(globaldefs, def);
+  strcpy(def->name, n->name);
+  def->wp = cp;
+  bool tmpstate = state;
+  state = true;
+  eval_quot(q);
+  write_hex(0xc3); // ret
+  state = tmpstate;
 }
 
 void word_search_word() {
@@ -922,6 +939,28 @@ void word_compile() {
   Stack* q = (Stack*)pop_x();
   eval_quot(q);
   intoken = tmpintoken;
+}
+
+void word_literal() {
+  size_t x = pop_x();
+  char buf[256] = {};
+  snprintf(buf, 256, "%zd", x);
+  Token* t = new_token_name(strdup(buf));
+  push_x((size_t)t);
+}
+
+void word_token_to_quot() {
+  Token* t = (Token*)pop_x();
+  Stack* q = new_stack();
+  push(q, t);
+  push_x((size_t)q);
+}
+
+void word_postquot() {
+  imm_pop_type(quott);
+  global_push_type(quott);
+  Stack* q = (Stack*)pop_x();
+  write_x((size_t)q);
 }
 
 void word_postcompile() {
@@ -1080,7 +1119,8 @@ void eval_token(Token* token) {
   BUILTIN_IMM_WORD("s\"", word_strlit);
 
   // word control
-  BUILTIN_WORD("parse-token", word_parse_token, 8, {IN_EFF("Token")});
+  BUILTIN_WORD("parse-token", word_parse_token, 8, {OUT_EFF("Token")});
+  BUILTIN_WORD("create-def", word_create_def, -16, {IN_EFF("Quot", "Token")});
   BUILTIN_WORD("search-word", word_search_word, 0, {IN_EFF("Int"); OUT_EFF("Int")});
   BUILTIN_WORD("word-code", word_word_code, 0, {IN_EFF("Int"); OUT_EFF("Int")});
 
@@ -1091,6 +1131,9 @@ void eval_token(Token* token) {
   BUILTIN_WORD("cr", word_cr, 0, {});
   BUILTIN_WORD("op", word_op, -8, {IN_EFF("Int")});
   BUILTIN_WORD("compile", word_compile, -8, {IN_EFF("Quot")});
+  BUILTIN_WORD("literal", word_literal, 0, {IN_EFF("Int"); OUT_EFF("Token")});
+  BUILTIN_WORD("quot", word_token_to_quot, 0, {IN_EFF("Token"); OUT_EFF("Quot")});
+  BUILTIN_IMM_WORD("postquot", word_postquot);
   BUILTIN_IMM_WORD("postcompile", word_postcompile);
 
   // dump

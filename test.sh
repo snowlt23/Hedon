@@ -102,8 +102,7 @@ errortest ": main true [ 4 ] [ ] if ; main" "Int <->  error in main: unmatch out
 errortest ": main true [ . ] [ ] if ; main" "Int <->  error in main: unmatch in-effect at if"
 runtest ": main 0 [ dup 10 < ] [ dup . 1 + ] while ; main" "0123456789"
 
-# filetest "examples/variable.hedon" "09"
-# filetest "examples/postpone.hedon" "9"
+filetest "examples/variable.hedon" "09"
 error_filetest "examples/err.hedon" "error in main2: unresolved drop trait word at drop"
 
 # linear logic
@@ -114,9 +113,6 @@ error_filetest "examples/linear.hedon" "error in write-file-illegal: unmatch l.F
 # runtest ": main 1 2 test.call2 c.call2 . ; main" "-1"
 # runtest ": main 1 2 3 4 5 6 test.call6 c.call6 . ; main" "-19"
 # filetest "examples/dl.hedon" "555"
-
-# local
-# runtest ": dadd -> x x x + ; dump-type dadd 9 dadd ." "Int -- Int18"
 
 # file
 # runtest ": main s\" ./test.txt\" r/o open-file ; main" ""

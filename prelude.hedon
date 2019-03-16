@@ -10,10 +10,13 @@
 : c paramtype ;
 
 : Quot builtin.Quot ; !( -- Type )
+: Token newtype ;
 : Int builtin.Int ; !( -- Type )
 : Bool newtype ;
 : Pointer newtype ;
 : EffSave newtype ;
+
+: cp builtin.cp ; !( -- Pointer )
 
 : eff.save builtin.eff.save ; !( -- EffSave )
 : eff.load builtin.eff.load ; !( EffSave -- )
@@ -101,13 +104,6 @@
 ;
 : Int.pick3 sp@ cell cell + cell + p+ @ ; eff.attach Int.pick3.eff
 : +! dup @ Int.pick3 + Pointer.Int.swap ! Int.drop ;
-
-: dp builtin.dp ; !( -- Pointer )
-: dp@ dp p@ ;
-: cp builtin.cp ; !( -- Pointer )
-: here dp@ ;
-: allot dp +! ;
-: , here ! cell allot ;
 
 rem syscalls
 : write-syscall 0x0f op 0x05 op ; immediate
@@ -217,11 +213,31 @@ rem op
   dup 16 take-byte op
   24 take-byte op
 ;
+: op-lendian64
+  dup 0 take-byte op
+  dup 8 take-byte op
+  dup 16 take-byte op
+  dup 24 take-byte op
+  dup 32 take-byte op
+  dup 40 take-byte op
+  dup 48 take-byte op
+  56 take-byte op
+;
 
 : get-rel cp @ Int.swap - ;
 : fixup-to-end 4 p+ to-int ;
 : fixup-by-here dup fixup-to-end get-rel fixup-lendian32 ;
 : write-to-here to-int cp p@ fixup-to-end - op-lendian32 ;
+
+rem meta
+
+: dp builtin.dp ; !( -- Pointer )
+: dp@ dp p@ ;
+: here dp@ ;
+: allot dp +! ;
+: , here ! cell allot ;
+: pointer ; !( -- Pointer )
+: var dp @ literal quot parse-token create-def 0 , ;
 
 rem controlflow
 
