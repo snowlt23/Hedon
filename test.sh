@@ -85,10 +85,13 @@ runtest ": main 3 4 [ + ] keep ; main . ." "47"
 runtest ": main 1 [ 2 + ] [ 3 + ] bi ; main . ." "43"
 runtest ": main 4 3 1 [ + ] [ + ] bi ; main . ." "54"
 runtest ": main 1 2 [ 2 + ] bi@ ; main . ." "34"
+runtest ": next [ 1 + ] dip Pointer.drop ; dump-type next" "Int Pointer -- Int"
 
 # control flow
 runtest ": main 8 0 [ 4 . ] when ; main ." "8"
 runtest ": main 8 1 [ 4 . ] when ; main ." "48"
+runtest ": main 0 [ dup 10 - ] [ dup . 1 + ] while ; main" "0123456789"
+
 # runtest ": main 0 if 4 . then 1 if 5 . then ; main" "5"
 # runtest ": main 0 if 4 . then 1 if 5 . then ; dump-type main" " -- "
 # runtest ": main 1 if 4 . else 5 . then 0 if 4 . else 5 . then ; main" "45"
@@ -101,10 +104,10 @@ runtest ": main 8 1 [ 4 . ] when ; main ." "48"
 
 # filetest "examples/variable.hedon" "09"
 # filetest "examples/postpone.hedon" "9"
-# error_filetest "examples/err.hedon" "unresolved drop trait word in main2"
+error_filetest "examples/err.hedon" "error in main2: unresolved drop trait word at drop"
 
 # linear logic
-# error_filetest "examples/linear.hedon" "unmatch FileU type to File in write-file-illegal"
+error_filetest "examples/linear.hedon" "error in write-file-illegal: unmatch l.FileU type to l.File at l.fwrite"
 
 # cffi
 # runtest ": main 9 test.call1 c.call1 . ; main" "9"

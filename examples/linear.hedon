@@ -1,11 +1,11 @@
 : l.FileU newtype ;
 : l.File newtype ;
 
-: l.open-file ; !( -- FileU )
-: l.FileU.lent ; !( FileU -- FileU File ) impl> lent
-: l.File.dup ; !( File -- File File ) impl> dup
-: l.fwrite ; !( File -- )
-: l.FileU.drop ; !( FileU -- ) impl> drop
+: l.open-file ; !( -- l.FileU )
+: l.FileU.lent ; !( l.FileU -- l.FileU l.File ) impl> lent
+: l.File.dup ; !( l.File -- l.File l.File ) impl> dup
+: l.fwrite ; !( l.File -- )
+: l.FileU.drop ; !( l.FileU -- ) impl> drop
 
 : write-file
   l.open-file lent l.fwrite drop
