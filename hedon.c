@@ -34,6 +34,46 @@
 #define end_codegenstate() \
   codegenstate = tmpcs;
 
+#define BUILTIN_EFF(arr, d, kind, ...) \
+  Def* d = last_def(); \
+  char* arr[] = {__VA_ARGS__}; \
+  for (int i=0; i<sizeof(arr)/sizeof(char*); i++) { \
+    Def* eff = search_def(arr[i]); \
+    if (eff == NULL) error("undefined %s eff-word", arr[i]); \
+    call_word(eff->wp); \
+    apply_effects(eff); \
+    if (kind == EFF_IMM) continue; \
+    global_pop_type(typet); \
+    Type* t = (Type*)pop_x(); \
+    if (kind == EFF_IN) global_pop_type(t); \
+    else global_push_type(t); \
+    push(d->effects, new_eff(eff, kind)); \
+  }
+#define IN_EFF(...) BUILTIN_EFF(inarr, indef, EFF_IN, __VA_ARGS__)
+#define OUT_EFF(...) BUILTIN_EFF(outarr, outdef, EFF_OUT, __VA_ARGS__)
+#define BUILTIN_WORD(s, f, stackinc, tdecl) \
+  if (strcmp(token->name, s) == 0) { \
+    tdecl; \
+    if (state) { \
+      write_call_builtin(f); \
+      write_stack_increment(stackinc); \
+    } else { \
+      f(); \
+    } \
+    return; \
+  }
+#define BUILTIN_IMM_WORD(s, f) \
+  if (strcmp(token->name, s) == 0) { \
+    f(); \
+    return; \
+  }
+#define BUILTIN_PARSE_WORD(s, f) \
+  if (strcmp(t->name, s) == 0) { \
+    t = f(); \
+    if (t == NULL) return parse_token(); \
+    else return t; \
+  }
+
 #define WORDSIZE 8
 #define DEFAULT_STACKSIZE (WORDSIZE*1024)
 
@@ -491,11 +531,20 @@ Token* parse_quot() {
   return new_token_quot(s);
 }
 
+Token* parse_rem() {
+  for (;;) {
+    char c = bgetc();
+    if (c == '\n') break;
+  }
+  return NULL;
+}
+
 Token* parse_token() {
   Token* t = parse_name();
   if (t == NULL) return NULL;
-  if (strcmp(t->name, "[") == 0) return parse_quot();
-  else return t;
+  BUILTIN_PARSE_WORD("[", parse_quot);
+  BUILTIN_PARSE_WORD("rem", parse_rem);
+  return t;
 }
 
 Def* solve_trait_word(Stack* defs) {
@@ -559,40 +608,6 @@ void add_int_effect() {
   Def* wdef = last_def();
   push(wdef->effects, new_eff(eff, EFF_OUT));
 }
-
-#define BUILTIN_EFF(arr, d, kind, ...) \
-  Def* d = last_def(); \
-  char* arr[] = {__VA_ARGS__}; \
-  for (int i=0; i<sizeof(arr)/sizeof(char*); i++) { \
-    Def* eff = search_def(arr[i]); \
-    if (eff == NULL) error("undefined %s eff-word", arr[i]); \
-    call_word(eff->wp); \
-    apply_effects(eff); \
-    if (kind == EFF_IMM) continue; \
-    global_pop_type(typet); \
-    Type* t = (Type*)pop_x(); \
-    if (kind == EFF_IN) global_pop_type(t); \
-    else global_push_type(t); \
-    push(d->effects, new_eff(eff, kind)); \
-  }
-#define IN_EFF(...) BUILTIN_EFF(inarr, indef, EFF_IN, __VA_ARGS__)
-#define OUT_EFF(...) BUILTIN_EFF(outarr, outdef, EFF_OUT, __VA_ARGS__)
-#define BUILTIN_WORD(s, f, stackinc, tdecl) \
-  if (strcmp(token->name, s) == 0) { \
-    tdecl; \
-    if (state) { \
-      write_call_builtin(f); \
-      write_stack_increment(stackinc); \
-    } else { \
-      f(); \
-    } \
-    return; \
-  }
-#define BUILTIN_IMM_WORD(s, f) \
-  if (strcmp(token->name, s) == 0) { \
-    f(); \
-    return; \
-  }
 
 void word_type_eff() {
   global_push_type(typet);
@@ -1061,8 +1076,7 @@ void eval_token(Token* token) {
   BUILTIN_WORD("builtin.eff.load", word_eff_load, -8, {});
   BUILTIN_WORD("builtin.eff.check", word_eff_check, -16, {});
 
-  // builtin words
-  BUILTIN_IMM_WORD("rem", word_rem);
+  // builtin parse words
   BUILTIN_IMM_WORD("s\"", word_strlit);
 
   // word control
