@@ -56,7 +56,7 @@ runtest "4 5 Int.drop ." "4"
 runtest ": add5 5 + ; dump-type add5" "Int -- Int"
 runtest ": add5 5 + ; dump-effect add5" "Int:out Int:in Int:in Int:out "
 runtest ": add5 5 + ; : x9 4 add5 ; x9 ." "9"
-runtest ": m 5 eq ; 4 m . 5 m ." "01"
+runtest ": m 5 eq ; 4 m b. 5 m b." "01"
 
 runtest "4 5 Int.drop ." "4"
 runtest "555 . cr 0 ." "555
@@ -88,9 +88,9 @@ runtest ": main 1 2 [ 2 + ] bi@ ; main . ." "34"
 runtest ": next [ 1 + ] dip Pointer.drop ; dump-type next" "Int Pointer -- Int"
 
 # control flow
-runtest ": main 8 0 [ 4 . ] when ; main ." "8"
-runtest ": main 8 1 [ 4 . ] when ; main ." "48"
-runtest ": main 0 [ dup 10 - ] [ dup . 1 + ] while ; main" "0123456789"
+runtest ": main 8 false [ 4 . ] when ; main ." "8"
+runtest ": main 8 true [ 4 . ] when ; main ." "48"
+runtest ": main 0 [ dup 10 < ] [ dup . 1 + ] while ; main" "0123456789"
 
 # runtest ": main 0 if 4 . then 1 if 5 . then ; main" "5"
 # runtest ": main 0 if 4 . then 1 if 5 . then ; dump-type main" " -- "
