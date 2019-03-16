@@ -16,27 +16,27 @@ var sdl.blit-surface.ptr !( -- Pointer )
 var sdl.get-window-surface.ptr !( -- Pointer )
 var sdl.update-window-surface.ptr !( -- Pointer )
 
-: sdl.open-shared s" libSDL2.so" rtld-lazy dlopen sdl.shared ! ;
+: sdl.open-shared "libSDL2.so" rtld-lazy dlopen sdl.shared ! ;
 rem : sdl.check-sym @ if else 8585 . cr 1 exit then ;
 : sdl.load-sym sdl.shared @ Int.swap dlsym Pointer.Int.swap ! ;
 : sdl.init-shared
   sdl.open-shared
-  sdl.get-error.ptr s" SDL_GetError" sdl.load-sym
-  sdl.init.ptr s" SDL_Init" sdl.load-sym
-  sdl.poll-event.ptr s" SDL_PollEvent" sdl.load-sym
-  sdl.quit.ptr s" SDL_Quit" sdl.load-sym
-  sdl.create-window.ptr s" SDL_CreateWindow" sdl.load-sym
-  sdl.destroy-window.ptr s" SDL_DestroyWindow" sdl.load-sym
-  sdl.create-renderer.ptr s" SDL_CreateRenderer" sdl.load-sym
-  sdl.create-texture-from-surface.ptr s" SDL_CreateTextureFromSurface" sdl.load-sym
-  sdl.render-copy.ptr s" SDL_RenderCopy" sdl.load-sym
-  sdl.render-present.ptr s" SDL_RenderPresent" sdl.load-sym
-  sdl.load-bmp-rw.ptr s" SDL_LoadBMP_RW" sdl.load-sym
-  sdl.rw-from-file.ptr s" SDL_RWFromFile" sdl.load-sym
-  sdl.free-surface.ptr s" SDL_FreeSurface" sdl.load-sym
-  sdl.blit-surface.ptr s" SDL_UpperBlit" sdl.load-sym
-  sdl.get-window-surface.ptr s" SDL_GetWindowSurface" sdl.load-sym
-  sdl.update-window-surface.ptr s" SDL_UpdateWindowSurface" sdl.load-sym
+  sdl.get-error.ptr "SDL_GetError" sdl.load-sym
+  sdl.init.ptr "SDL_Init" sdl.load-sym
+  sdl.poll-event.ptr "SDL_PollEvent" sdl.load-sym
+  sdl.quit.ptr "SDL_Quit" sdl.load-sym
+  sdl.create-window.ptr "SDL_CreateWindow" sdl.load-sym
+  sdl.destroy-window.ptr "SDL_DestroyWindow" sdl.load-sym
+  sdl.create-renderer.ptr "SDL_CreateRenderer" sdl.load-sym
+  sdl.create-texture-from-surface.ptr "SDL_CreateTextureFromSurface" sdl.load-sym
+  sdl.render-copy.ptr "SDL_RenderCopy" sdl.load-sym
+  sdl.render-present.ptr "SDL_RenderPresent" sdl.load-sym
+  sdl.load-bmp-rw.ptr "SDL_LoadBMP_RW" sdl.load-sym
+  sdl.rw-from-file.ptr "SDL_RWFromFile" sdl.load-sym
+  sdl.free-surface.ptr "SDL_FreeSurface" sdl.load-sym
+  sdl.blit-surface.ptr "SDL_UpperBlit" sdl.load-sym
+  sdl.get-window-surface.ptr "SDL_GetWindowSurface" sdl.load-sym
+  sdl.update-window-surface.ptr "SDL_UpdateWindowSurface" sdl.load-sym
 ;
 
 : sdl.WindowU newtype ;
@@ -71,7 +71,7 @@ rem : sdl.windowpos-undefined 0x1fff0000 ;
   sdl.get-error.ptr p@ c.call0
 ;
 : print-error
-  sdl.get-error s. cr
+  sdl.get-error .s cr
 ;
 : sdl.init
   sdl.init-shared
@@ -94,7 +94,7 @@ rem : sdl.windowpos-undefined 0x1fff0000 ;
 : sdl.render-present sdl.render-present.ptr p@ c.call1 Int.drop ; !( sdl.Renderer )
 
 : sdl.rw-from-file sdl.rw-from-file.ptr p@ c.call2 ;
-: sdl.load-bmp s" rb" sdl.rw-from-file 1 sdl.load-bmp-rw.ptr p@ c.call2 dup 0 eq ; !( Int -- sdl.SurfaceU Int )
+: sdl.load-bmp "rb" sdl.rw-from-file 1 sdl.load-bmp-rw.ptr p@ c.call2 dup 0 eq ; !( Int -- sdl.SurfaceU Bool )
 : sdl.free-surface.unsafe sdl.free-surface.ptr p@ c.call1 Int.drop ; !( sdl.SurfaceU -- )
 : sdl.SurfaceU.lent Int.dup ; !( sdl.SurfaceU -- sdl.SurfaceU sdl.Surface ) impl> lent
 : sdl.SurfaceU.drop sdl.free-surface.unsafe ; impl> drop
@@ -115,13 +115,13 @@ var renderer.ptr !( -- Pointer )
 : renderer@ renderer.ptr @ ; !( -- sdl.Renderer )
 : renderer! renderer.ptr ! ; !( sdl.RendererU -- )
 
-: create-window s" SDL in Hedon" sdl.default-pos 311 400 0 sdl.create-window ;
+: create-window "SDL in Hedon" sdl.default-pos 311 400 0 sdl.create-window ;
 : init
   sdl.init-video sdl.init
   create-window window!
   window@ -1 0 sdl.create-renderer renderer!
 ;
-: load-bmp sdl.load-bmp if s" surf is nil" s. cr then ;
+: load-bmp sdl.load-bmp [ "Unable to load bmp" .s cr 1 exit ] when ;
 : update-screen window@ sdl.update-window-surface ;
 
 : poll lent sdl.poll-event ;
@@ -130,8 +130,8 @@ var renderer.ptr !( -- Pointer )
 
 : Texture.Renderer.swap Int.swap ; !( sdl.Texture sdl.Renderer -- sdl.Renderer sdl.Texture )
 : Surface.Renderer.swap Int.swap ; !( sdl.Surface sdl.Renderer -- sdl.Renderer sdl.Surface )
-: load-scene s" ./image.bmp" load-bmp lent renderer@ Surface.Renderer.swap sdl.create-texture-from-surface ;
-: draw-scene sdl.TextureU.lent renderer@ Texture.Renderer.swap null null sdl.render-copy ;
+: load-scene "./image.bmp" load-bmp lent renderer@ Surface.Renderer.swap sdl.create-texture-from-surface ;
+: draw-scene lent renderer@ Texture.Renderer.swap null null sdl.render-copy ;
 : draw draw-scene renderer@ sdl.render-present update-screen ;
 
 rem : event isquit if sdl.EventU.drop quit sdl.SurfaceU.dummy else sdl.EventU.drop sdl.SurfaceU.ret then ;

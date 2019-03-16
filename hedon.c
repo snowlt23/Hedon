@@ -512,10 +512,13 @@ Token* parse_name() {
   skip_spaces();
   char token[256] = {};
   int i;
+  bool instrlit = false;
   for (i=0; ; i++) {
     if (i >= 256-1) error("hedon word length should be <256.");
     char c = bgetc();
-    if (c == ' ' || c == '\n' || c == '\r' || c == '\t' || c == '\0' || c == EOF) break;
+    if (c == ' ' && !instrlit) break;
+    if (c == '\n' || c == '\r' || c == '\t' || c == '\0' || c == EOF) break;
+    if (c == '"') instrlit = !instrlit;
     token[i] = c;
   }
   if (strlen(token) == 0) return NULL;
@@ -786,6 +789,7 @@ void word_force_effects() {
     if (eff == NULL) error("undefined %s word", t->name);
     push(def->effects, new_eff(eff, inout));
   }
+  if (inout == EFF_IN) def->effects = rev_stack(def->effects);
 
   spill_globaltype;
   state = true;
@@ -858,21 +862,6 @@ void word_dump_effect() {
   }
 }
 
-void word_strlit() {
-  global_push_type(intt);
-  size_t p = (size_t)dp;
-  for (;;) {
-    char c = bgetc();
-    if (c == '"') break;
-    if (c == '\\') c = bgetc();
-    *dp = c;
-    dp++;
-  }
-  *dp = '\0';
-  dp++;
-  write_x(p);
-}
-
 void word_rem() {
   for (;;) {
     if (bgetc() == '\n') break;
@@ -921,7 +910,7 @@ void word_dot() {
   printf("%zd", x);
   fflush(stdout);
 }
-void word_sdot() {
+void word_dots() {
   char* x = (char*)pop_x();
   printf("%s", x);
   fflush(stdout);
@@ -972,16 +961,16 @@ void word_postcompile() {
 }
 
 void* dlopen_x(char* libname, size_t flag) {
-  fprintf(stderr, "dlopen %s %zd\n", libname, flag);
+  // fprintf(stderr, "dlopen %s %zd\n", libname, flag);
   void* h = dlopen(libname, flag);
-  if (h == NULL) error("aaa");
-  fprintf(stderr, "dlshared %p\n", h);
+  // if (h == NULL) error("aaa");
+  // fprintf(stderr, "dlshared %p\n", h);
   return h;
 }
 void* dlsym_x(void* h, char* symname) {
-  fprintf(stderr, "dlsym %p %s\n", h, symname);
+  // fprintf(stderr, "dlsym %p %s\n", h, symname);
   void* s = dlsym(h, symname);
-  if (s == NULL) error("aaa dlsym");
+  // if (s == NULL) error("aaa dlsym");
   return s;
 }
 
@@ -1077,6 +1066,28 @@ void eval_token(Token* token) {
     }
     return;
   }
+  
+  if (token->name[0] == '"') {
+    global_push_type(intt);
+    char* s = token->name+1;
+    size_t p = (size_t)dp;
+    for (;;) {
+      char c = *s;
+      s++;
+      if (c == '"') break;
+      if (c == '\\') {c = *s; s++;};
+      *dp = c;
+      dp++;
+    }
+    *dp = '\0';
+    dp++;
+    if (state) {
+      write_x(p);
+    } else {
+      push_x(p);
+    }
+    return;
+  }
 
   long x = strtol(token->name, NULL, 0);
   if (x != 0 || token->name[0] == '0') {
@@ -1115,9 +1126,6 @@ void eval_token(Token* token) {
   BUILTIN_WORD("builtin.eff.load", word_eff_load, -8, {});
   BUILTIN_WORD("builtin.eff.check", word_eff_check, -16, {});
 
-  // builtin parse words
-  BUILTIN_IMM_WORD("s\"", word_strlit);
-
   // word control
   BUILTIN_WORD("parse-token", word_parse_token, 8, {OUT_EFF("Token")});
   BUILTIN_WORD("create-def", word_create_def, -16, {IN_EFF("Quot", "Token")});
@@ -1127,7 +1135,7 @@ void eval_token(Token* token) {
   BUILTIN_WORD("builtin.dp", word_dp, 8, {OUT_EFF("Int")});
   BUILTIN_WORD("builtin.cp", word_cp, 8, {OUT_EFF("Int")});
   BUILTIN_WORD(".", word_dot, -8, {IN_EFF("Int")});
-  BUILTIN_WORD("s.", word_sdot, -8, {IN_EFF("Int")});
+  BUILTIN_WORD(".s", word_dots, -8, {IN_EFF("Int")});
   BUILTIN_WORD("cr", word_cr, 0, {});
   BUILTIN_WORD("op", word_op, -8, {IN_EFF("Int")});
   BUILTIN_WORD("compile", word_compile, -8, {IN_EFF("Quot")});

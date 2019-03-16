@@ -76,6 +76,7 @@ runtest "1 , 2 , 3 , dp@ cell p- @ ." "3"
 # runtest "var fz !( -- Pointer ) 555 fz ! fz @ ." "555"
 # runtest "var aaa !( -- Pointer ) var bbb !( -- Pointer ) 123 aaa ! 456 bbb ! aaa @ . bbb @ ." "123456"
 exittest "4 . 5 . 23 exit 6 ." "23"
+runtest ": hello \"Hello Yukari!\" .s ; hello" "Hello Yukari!"
 errortest ": main ; drop" "error in main: unresolved drop trait word at drop"
 error_filetest "examples/basic-type.hedon" "error in mi: unmatch MyInt type to Int at +"
 
