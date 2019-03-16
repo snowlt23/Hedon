@@ -2,42 +2,51 @@
 : test.call2 builtin.test.call2 ;
 : test.call6 builtin.test.call6 ;
 
+: write-r11-call 0x41 op 0xff op 0xd3 op ;
+
 : c.call0
-  Pointer eff.drop Int eff.push
-  op->r11
-  op-r11-call
-  op-rax>
+  Pointer eff.drop Int eff.push eff.save
+  [ >r11 ] postcompile
+  write-r11-call
+  [ rax> ] postcompile
+  eff.load
 ; immediate !( )
 : c.call1
-  Pointer eff.drop Int eff.drop Int eff.push
-  op->r11 op->rdi
-  op-r11-call
-  op-rax>
+  Pointer eff.drop Int eff.drop Int eff.push eff.save
+  [ >r11 >rdi ] postcompile
+  write-r11-call
+  [ rax> ] postcompile
+  eff.load
 ; immediate !( )
 : c.call2
-  Pointer eff.drop Int eff.drop Int eff.drop Int eff.push
-  postpone >r11 postpone >rsi postpone >rdi
-  op-r11-call
-  postpone rax>
+  Pointer eff.drop Int eff.drop Int eff.drop Int eff.push eff.save
+  [ >r11 >rsi >rdi ] postcompile
+  write-r11-call
+  [ rax> ] postcompile
+  eff.load
 ; immediate !( )
 : c.call3
-  Pointer eff.drop Int eff.drop Int eff.drop Int eff.drop Int eff.push
-  postpone >r11 postpone >rdx postpone >rsi postpone >rdi
-  op-r11-call
-  postpone rax>
+  Pointer eff.drop Int eff.drop Int eff.drop Int eff.drop Int eff.push eff.save
+  [ >r11 >rdx >rsi >rdi ] postcompile
+  write-r11-call
+  [ rax> ] postcompile
+  eff.load
 ; immediate !( )
 : c.call4
-  Pointer eff.drop Int eff.drop Int eff.drop Int eff.drop Int eff.drop Int eff.push
-  postpone >r11 postpone >rcx postpone >rdx postpone >rsi postpone >rdi
-  op-r11-call
-  postpone rax>
+  Pointer eff.drop Int eff.drop Int eff.drop Int eff.drop Int eff.drop Int eff.push eff.save
+  [ >r11 >rcx >rdx >rsi >rdi ] postcompile
+  write-r11-call
+  [ rax> ] postcompile
+  eff.load
 ; immediate !( )
 : c.call6
-  Pointer eff.drop Int eff.drop Int eff.drop Int eff.drop Int eff.drop Int eff.drop Int eff.drop Int eff.push
-  postpone >r11 postpone >r9 postpone >r8 postpone >rcx postpone >rdx postpone >rsi postpone >rdi
-  op-r11-call
-  postpone rax>
+  Pointer eff.drop Int eff.drop Int eff.drop Int eff.drop Int eff.drop Int eff.drop Int eff.drop Int eff.push eff.save
+  [ >r11 >r9 >r8 >rcx >rdx >rsi >rdi ] postcompile
+  write-r11-call
+  [ rax> ] postcompile
+  eff.load
 ; immediate !( )
+
 : rtld-lazy 1 ;
 : rtld-now 2 ;
 : dlopen builtin.c.dlopen c.call2 ;

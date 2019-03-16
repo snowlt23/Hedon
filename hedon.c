@@ -1217,7 +1217,7 @@ void eval_file_path(char* path) {
 
 void load_core() {
   eval_file_path("prelude.hedon");
-  // eval_file_path("cffi.hedon");
+  eval_file_path("cffi.hedon");
   // eval_file_path("fileio.hedon");
   // eval_file_path("local.hedon");
 }
