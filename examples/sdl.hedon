@@ -18,10 +18,12 @@ var sdl.get-window-surface.ptr !( -- Pointer )
 var sdl.update-window-surface.ptr !( -- Pointer )
 
 : sdl.open-shared "libSDL2.so" rtld-lazy dlopen sdl.shared ! ;
-rem : sdl.check-sym @ if else 8585 . cr 1 exit then ;
-: sdl.load-sym sdl.shared @ Int.swap dlsym Pointer.Int.swap ! ;
+: sdl.check-shared sdl.shared @ 0 eq [ "Unable to load libSDL2.so" .s 1 exit ] when ;
+: sdl.check-sym @ 0 eq [ "Unable to load sdl symbol" .s 1 exit ] when ;
+: sdl.load-sym.unsafe sdl.shared @ Int.swap dlsym Pointer.Int.swap ! ;
+: sdl.load-sym [ dup ] dip sdl.load-sym.unsafe sdl.check-sym ;
 : sdl.init-shared
-  sdl.open-shared
+  sdl.open-shared sdl.check-shared
   sdl.get-error.ptr "SDL_GetError" sdl.load-sym
   sdl.init.ptr "SDL_Init" sdl.load-sym
   sdl.poll-event.ptr "SDL_PollEvent" sdl.load-sym
@@ -77,8 +79,7 @@ rem : sdl.windowpos-undefined 0x1fff0000 ;
 ;
 : sdl.init
   sdl.init-shared
-  rem sdl.init.ptr p@ c.call1 if print-error then
-  sdl.init.ptr p@ c.call1 Int.drop
+  sdl.init.ptr p@ c.call1 to-bool [ print-error ] when
 ;
 : sdl.poll-event sdl.poll-event.ptr p@ c.call1 ; !( sdl.Event -- Bool )
 : sdl.quit sdl.quit.ptr p@ c.call0 Int.drop ;
