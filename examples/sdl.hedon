@@ -15,13 +15,40 @@ var sdl.rw-from-file.ptr !( -- Pointer )
 var sdl.free-surface.ptr !( -- Pointer )
 var sdl.blit-surface.ptr !( -- Pointer )
 var sdl.get-window-surface.ptr !( -- Pointer )
-var sdl.update-window-surface.ptr !( -- Pointer )
 
-: sdl.open-shared "libSDL2.so" rtld-lazy dlopen sdl.shared p! ;
-: sdl.check-shared sdl.shared @ 0 eq [ "Unable to load libSDL2.so" .s 1 exit ] when ;
+var loader !( -- Pointer )
+var load.var !( -- Pointer )
+var loadtype.var !( -- Pointer )
+: loader@ loader @ ; !( -- Quot )
+: loader! loader ! ; !( Quot -- )
+: load@ load.var @ ; !( -- Token )
+: load! load.var ! ; !( Token -- )
+: loadtype@ loadtype.var @ ; !( -- Token )
+: loadtype! loadtype.var ! ; !( Token -- )
+
+: init-loader quot loader! ;
+: push-loader loader@ push ;
+: def-loader loader@ dup .q parse-token create-def ;
+: generate-loader push-loader push-loader push-loader ;
+: def-ptrvar var-def loadtype@ create-eff ;
+: loader parse-token load! ;
+: loadtype parse-token loadtype! ;
+rem ptrname symname loader
+: c.ffi parse-token dup def-ptrvar [ load@ parse-token ] dip generate-loader ;
+: load.Pointer Pointer eff.push ;
+
 : sdl.check-sym @ 0 eq [ "Unable to load sdl symbol" .s 1 exit ] when ;
 : sdl.load-sym.unsafe sdl.shared p@ swap dlsym swap p! ;
 : sdl.load-sym [ dup ] dip sdl.load-sym.unsafe sdl.check-sym ;
+
+init-loader
+  loader sdl.load-sym
+  loadtype load.Pointer
+  c.ffi sdl.update-window-surface.ptr "SDL_UpdateWindowSurface"
+def-loader sdl.load-symbols
+
+: sdl.open-shared "libSDL2.so" rtld-lazy dlopen sdl.shared p! ;
+: sdl.check-shared sdl.shared @ 0 eq [ "Unable to load libSDL2.so" .s 1 exit ] when ;
 : sdl.init-shared
   sdl.open-shared sdl.check-shared
   sdl.get-error.ptr "SDL_GetError" sdl.load-sym
@@ -40,7 +67,7 @@ var sdl.update-window-surface.ptr !( -- Pointer )
   sdl.free-surface.ptr "SDL_FreeSurface" sdl.load-sym
   sdl.blit-surface.ptr "SDL_UpperBlit" sdl.load-sym
   sdl.get-window-surface.ptr "SDL_GetWindowSurface" sdl.load-sym
-  sdl.update-window-surface.ptr "SDL_UpdateWindowSurface" sdl.load-sym
+  sdl.load-symbols
 ;
 
 : sdl.WindowU newtype ;

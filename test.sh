@@ -115,5 +115,8 @@ runtest ": main 9 test.call1 c.call1 . ; main" "9"
 runtest ": main 1 2 test.call2 c.call2 . ; main" "-1"
 runtest ": main 1 2 3 4 5 6 test.call6 c.call6 . ; main" "-19"
 
+# string
+runtest ": main \"yukarin\" strlen . ; main" "7"
+
 # file
-# runtest ": main s\" ./test.txt\" r/o open-file ; main" ""
+filetest "examples/fileio.hedon" "yukayuka"

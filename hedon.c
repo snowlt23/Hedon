@@ -162,6 +162,8 @@ Type* cstrt;
 void call_word_asm(uint8_t** spp, uint8_t* wp);
 
 Token* parse_token();
+void print_quot(Stack* q);
+void print_token(Token* t);
 void dump_typestack(FILE* f, Stack* s);
 void typing_quot(Stack* t);
 void codegen_quot(Stack* t);
@@ -907,6 +909,17 @@ void word_create_def() {
   state = tmpstate;
 }
 
+void word_create_eff() {
+  Def* def = last_def();
+  def->freezein = NULL;
+  def->freezeout = NULL;
+  def->effects = new_stack();
+  Token* t = (Token*)pop_x();
+  Def* eff = search_def(t->name);
+  if (eff == NULL) error("undefined %s word", t->name);
+  push(def->effects, new_eff(eff, EFF_IMM));
+}
+
 void word_search_word() {
   char* name = (char*)pop_x();
   push_x((size_t)search_def(name));
@@ -915,6 +928,22 @@ void word_search_word() {
 void word_word_code() {
   Def* def = (Def*)pop_x();
   push_x((size_t)def->wp);
+}
+
+void print_quot(Stack* q) {
+  printf("[ ");
+  for (int i=0; i<stacklen(q); i++) {
+    Token* t = get(q, i);
+    printf("%s ", t->name);
+  }
+  printf("]");
+}
+void print_token(Token* t) {
+  if (t->kind == TOKEN_NAME) {
+    printf("%s", t->name);
+  } else {
+    print_quot(t->quot);
+  }
 }
 
 void word_dp() {
@@ -933,6 +962,11 @@ void word_dot() {
 void word_dots() {
   char* x = (char*)pop_x();
   printf("%s", x);
+  fflush(stdout);
+}
+void word_dotq() {
+  Stack* x = (Stack*)pop_x();
+  print_quot(x);
   fflush(stdout);
 }
 void word_cr() {
@@ -964,11 +998,20 @@ void word_literal() {
   push_x((size_t)t);
 }
 
-void word_token_to_quot() {
-  Token* t = (Token*)pop_x();
+void word_quot_to_token() {
+  Stack* q = (Stack*)pop_x();
+  push_x((size_t)new_token_quot(q));
+}
+
+void word_new_quot() {
   Stack* q = new_stack();
-  push(q, t);
   push_x((size_t)q);
+}
+
+void word_push() {
+  Stack* q = (Stack*)pop_x();
+  Token* t = (Token*)pop_x();
+  push(q, t);
 }
 
 void word_postquot() {
@@ -1159,6 +1202,7 @@ void eval_token(Token* token) {
   // word control
   BUILTIN_WORD("parse-token", word_parse_token, 8, {OUT_EFF("Token")});
   BUILTIN_WORD("create-def", word_create_def, -16, {IN_EFF("Quot", "Token")});
+  BUILTIN_WORD("create-eff", word_create_eff, -8, {IN_EFF("Token")});
   BUILTIN_WORD("search-word", word_search_word, 0, {IN_EFF("Int"); OUT_EFF("Int")});
   BUILTIN_WORD("word-code", word_word_code, 0, {IN_EFF("Int"); OUT_EFF("Int")});
 
@@ -1166,12 +1210,15 @@ void eval_token(Token* token) {
   BUILTIN_WORD("builtin.cp", word_cp, 8, {OUT_EFF("Int")});
   BUILTIN_WORD(".", word_dot, -8, {IN_EFF("Int")});
   BUILTIN_WORD(".s", word_dots, -8, {IN_EFF("Cstr")});
+  BUILTIN_WORD(".q", word_dotq, -8, {IN_EFF("Quot")});
   BUILTIN_WORD("cr", word_cr, 0, {});
   BUILTIN_WORD("op", word_op, -8, {IN_EFF("Int")});
   BUILTIN_WORD("fixup-op", word_fixup_op, -16, {IN_EFF("Int", "Pointer")});
   BUILTIN_WORD("compile", word_compile, -8, {IN_EFF("Quot")});
   BUILTIN_WORD("literal", word_literal, 0, {IN_EFF("Int"); OUT_EFF("Token")});
-  BUILTIN_WORD("quot", word_token_to_quot, 0, {IN_EFF("Token"); OUT_EFF("Quot")});
+  BUILTIN_WORD("quot->token", word_quot_to_token, 0, {IN_EFF("Quot"); OUT_EFF("Token")});
+  BUILTIN_WORD("quot", word_new_quot, 8, {OUT_EFF("Quot")});
+  BUILTIN_WORD("push", word_push, -16, {IN_EFF("Token", "Quot");});
   BUILTIN_IMM_WORD("postquot", word_postquot);
   BUILTIN_IMM_WORD("postcompile", word_postcompile);
 
@@ -1258,8 +1305,8 @@ void eval_file_path(char* path) {
 void load_core() {
   eval_file_path("prelude.hedon");
   eval_file_path("cffi.hedon");
-  // eval_file_path("fileio.hedon");
-  // eval_file_path("local.hedon");
+  eval_file_path("string.hedon");
+  eval_file_path("fileio.hedon");
 }
 
 int main(int argc, char** argv) {

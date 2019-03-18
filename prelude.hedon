@@ -24,6 +24,8 @@
 : eff.check builtin.eff.check ; !( EffSave EffSave -- )
 
 : to-int ; !( Pointer -- Int )
+: to-cstr ; !( Pointer -- Cstr )
+: cstr->pointer ; !( Cstr -- Pointer )
 : to-bool ; !( Int -- Bool )
 : true 1 ; !( -- Bool )
 : false 0 ; !( -- Bool )
@@ -38,6 +40,7 @@
 
 : grow [ 0x48 0x83 0xeb 0x08 ] X ; !( -- Int )
 : Int.drop [ 0x48 0x83 0xc3 0x08 ] X ; !( Int ) impl> drop
+: Cstr.drop Int.drop ; !( Cstr ) impl> drop
 : Bool.drop Int.drop ; !( Bool ) impl> drop
 : Pointer.drop Int.drop ; !( Pointer ) impl> drop
 : Type.drop [ 0x48 0x83 0xc3 0x08 ] X ; !( Type ) impl> drop
@@ -53,9 +56,11 @@
 : rax> grow [ 0x48 0x89 0x03 ] X ;
 : rcx> grow [ 0x48 0x89 0x0b ] X ;
 : Int.dup >rax grow rax> ; impl> dup
+: Cstr.dup Int.dup ; !( Cstr -- Cstr Cstr ) impl> dup
 : Type.dup Int.dup ; !( Type -- Type Type ) impl> dup
 : Pointer.dup Int.dup ; !( Pointer -- Pointer Pointer ) impl> dup
 : Quot.dup Int.dup ; !( Quot -- Quot Quot ) impl> dup
+: Token.dup Int.dup ; !( Token -- Token Token ) impl> dup
 : EffSave.dup Int.dup ; !( EffSave -- EffSave EffSave ) impl> dup
 : prim.Int.swap >rax >rcx rax> rcx> ;
 : prim.Type.swap prim.Int.swap ; !( Type Type -- Type Type )
@@ -68,12 +73,16 @@
 : Int.swap prim.Int.swap ; impl> swap
 : Type.swap prim.Type.swap ; impl> swap
 : Cstr.swap Int.swap ; !( Cstr Cstr -- Cstr Cstr ) impl> swap
-: Pointer.Cstr.swap prim.Int.swap ; !( Pointer Cstr -- Cstr Pointer ) impl> swap
-: Cstr.Pointer.swap prim.Int.swap ; !( Cstr Pointer -- Pointer Cstr ) impl> swap
+: Cstr.Int.swap Int.swap ; !( Cstr Int -- Int Cstr ) impl> swap
+: Int.CStr.swap Int.swap ; !( Int Cstr -- Cstr Int ) impl> swap
+: Pointer.Cstr.swap Int.swap ; !( Pointer Cstr -- Cstr Pointer ) impl> swap
+: Cstr.Pointer.swap Int.swap ; !( Cstr Pointer -- Pointer Cstr ) impl> swap
 : Pointer.swap Int.swap ; !( Pointer Pointer -- Pointer Pointer ) impl> swap
 : Pointer.Int.swap Int.swap ; !( Pointer Int -- Int Pointer ) impl> swap
 : Int.Pointer.swap Int.swap ; !( Int Pointer -- Pointer Int ) impl> swap
 : Quot.swap Int.swap ; !( Quot Quot -- Quot Quot ) impl> swap
+: Quot.Token.Int.swap ; !( Quot Token -- Token Quot ) impl> swap
+: Token.Quot.Int.swap ; !( Token Quot -- Quot Token ) impl> swap
 : Quot.Type.swap Int.swap ; !( Quot Type -- Type Quot ) impl> swap
 
 : + >rcx >rax [ 0x48 0x01 0xc8 ] X rax> ;
@@ -109,6 +118,8 @@
 : ! >rax >rcx [ 0x48 0x89 0x08 ] X ; !( Int Pointer -- )
 : p@ @ ; !( Pointer -- Pointer )
 : p! ! ; !( Pointer Pointer -- )
+: s+ + ; !( Cstr Int -- Cstr )
+: c@ >rax [ 0x8a 0x00 0x48 0x0f 0xb6 0xc0 ] X rax> ; !( Cstr -- Int )
 : c! >rax >rcx [ 0x88 0x08 ] X ; !( Int Pointer -- )
 : Int.pick3.eff
   b dup eff.drop
@@ -118,6 +129,7 @@
 ;
 : Int.pick3 sp@ cell cell + cell + p+ @ ; eff.attach Int.pick3.eff
 : +! dup @ Int.pick3 + Pointer.Int.swap ! Int.drop ;
+: 1+ 1 + ;
 
 : cp builtin.cp ; !( -- Pointer )
 : cp@ cp p@ ;
@@ -255,7 +267,9 @@ rem meta
 : allot dp +! ;
 : , here ! cell allot ;
 : pointer ; !( -- Pointer )
-: var dp @ literal quot parse-token create-def 0 , ;
+: token-to-quot quot dup [ push ] dip ;
+: var-def dp @ literal token-to-quot swap create-def 0 , ;
+: var parse-token var-def ;
 
 rem controlflow
 
@@ -298,9 +312,7 @@ rem controlflow
   [ Quot.swap compile ] dip
   Bool eff.drop
   write-while
-  eff.save-out
-  [ compile ] 3dip 0xe9 op
-  eff.load-out
+  [ compile ] 2dip 0xe9 op
   Pointer.swap write-to-here
   fixup-by-here
 ; immediate
