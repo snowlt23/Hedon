@@ -1,4 +1,3 @@
 : strlen
   0 swap [ dup c@ 0 eq not ] [ swap 1+ swap 1 s+ ] while drop
-  rem 0 swap [ dup c@ 0 eq not ] [ 1 s+ ] while drop
 ;

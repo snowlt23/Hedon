@@ -2,7 +2,8 @@
   "test.txt" w/o open-file drop
   lent "yukayuka" write-string drop
   "test.txt" r/o open-file drop
-  lent here 8 read
-  here to-cstr .s drop
+  lent 9 c.malloc [ 8 read ] keep
+  to-cstr .s
+  drop
 ;
 main
