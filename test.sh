@@ -110,6 +110,11 @@ error_filetest "examples/err.hedon" "error in main2: unresolved drop trait word 
 # linear logic
 error_filetest "examples/linear.hedon" "error in write-file-illegal: unmatch l.FileU type to l.File at l.fwrite"
 
+# macro
+runtest ": main 4 5 2dup . . . . ; main" "5454"
+runtest ": main 5 0 [ 2dup > ] [ dup . 1+ ] while ; main" "01234"
+runtest ": main 5 [ dup . ] do ; main" "01234"
+
 # cffi
 runtest ": main 9 test.call1 c.call1 . ; main" "9"
 runtest ": main 1 2 test.call2 c.call2 . ; main" "-1"

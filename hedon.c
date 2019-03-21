@@ -934,7 +934,8 @@ void print_quot(Stack* q) {
   printf("[ ");
   for (int i=0; i<stacklen(q); i++) {
     Token* t = get(q, i);
-    printf("%s ", t->name);
+    print_token(t);
+    printf(" ");
   }
   printf("]");
 }
@@ -1012,6 +1013,19 @@ void word_push() {
   Stack* q = (Stack*)pop_x();
   Token* t = (Token*)pop_x();
   push(q, t);
+}
+
+void word_combine() {
+  Stack* b = (Stack*)pop_x();
+  Stack* a = (Stack*)pop_x();
+  Stack* q = new_stack();
+  for (int i=0; i<stacklen(a); i++) {
+    push(q, get(a, i));
+  }
+  for (int i=0; i<stacklen(b); i++) {
+    push(q, get(b, i));
+  }
+  push_x((size_t)(q));
 }
 
 void word_postquot() {
@@ -1219,6 +1233,7 @@ void eval_token(Token* token) {
   BUILTIN_WORD("quot->token", word_quot_to_token, 0, {IN_EFF("Quot"); OUT_EFF("Token")});
   BUILTIN_WORD("quot", word_new_quot, 8, {OUT_EFF("Quot")});
   BUILTIN_WORD("push", word_push, -16, {IN_EFF("Token", "Quot");});
+  BUILTIN_WORD("combine", word_combine, -8, {IN_EFF("Quot", "Quot"); OUT_EFF("Quot")});
   BUILTIN_IMM_WORD("postquot", word_postquot);
   BUILTIN_IMM_WORD("postcompile", word_postcompile);
 
@@ -1305,6 +1320,7 @@ void eval_file_path(char* path) {
 void load_core() {
   eval_file_path("prelude.hedon");
   eval_file_path("cffi.hedon");
+  eval_file_path("macro.hedon");
   eval_file_path("string.hedon");
   eval_file_path("fileio.hedon");
 }

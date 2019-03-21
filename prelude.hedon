@@ -105,6 +105,9 @@
     0x48 0x0f 0xb6 0xc0 ] X
   rax>
 ; !( Int Int -- Bool )
+: >
+  swap <
+;
 
 : >rbx [ 0x48 0x8b 0x1b ] X ; !( Int -- )
 : rbx> grow [ 0x48 0x89 0x1b ] X ;
@@ -316,4 +319,3 @@ rem controlflow
   Pointer.swap write-to-here
   fixup-by-here
 ; immediate
-

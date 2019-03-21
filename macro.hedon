@@ -1,0 +1,10 @@
+: 2dup
+  swap dup [ swap dup ] dip swap
+;
+rem n q --
+: do
+  [ 0 ] postcompile
+  [ 2dup > ] postquot
+  [ [ 1+ ] postquot combine ] dip
+  swap [ while ] postcompile
+; immediate
