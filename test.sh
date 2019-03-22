@@ -85,7 +85,7 @@ runtest ": main 2 3 [ 2 + ] dip ; main . ." "34"
 runtest ": main 3 4 [ + ] keep ; main . ." "47"
 runtest ": main 1 [ 2 + ] [ 3 + ] bi ; main . ." "43"
 runtest ": main 4 3 1 [ + ] [ + ] bi ; main . ." "54"
-runtest ": main 1 2 [ 2 + ] bi@ ; main . ." "34"
+runtest ": main 1 2 [ 2 + ] bi@ ; main . ." "43"
 runtest ": next [ 1 + ] dip Pointer.drop ; dump-type next" "Int Pointer -- Int"
 
 # control flow
@@ -93,7 +93,7 @@ runtest ": main 8 false [ 4 . ] when ; main ." "8"
 runtest ": main 8 true [ 4 . ] when ; main ." "48"
 runtest ": main false [ 4 . ] when true [ 5 . ] when ; main" "5"
 runtest ": main false [ 4 . ] when true [ 5 . ] when ; dump-type main" " -- "
-errortest "0 : main false when ;" "error in main: unmatch Int type to Quot at when"
+errortest "0 : main false when ;" "error in main: stack is empty, but expected Quot value at when"
 errortest ": main [ 5 . ] when ; dump-type main false main true main" "Bool -- 5"
 errortest ": main true [ 4 ] when ; main" " <-> Int error in main: unmatch out-effect at when"
 runtest ": main true [ 4 . ] [ 5 . ] if false [ 4 . ] [ 5 . ] if ; main" "45"
@@ -123,6 +123,7 @@ runtest ": main 1 2 3 4 5 6 test.call6 c.call6 . ; main" "-19"
 # string
 runtest ": main \"yukarin\" strlen . ; main" "7"
 runtest ": main 7 new-cstr [ \"yukarin\" strcpy ] keep .s ; main" "yukarin"
+runtest ": main \"yuka\" string \"maki\" string concat .ss ; main" "yukamaki"
 
 # file
 filetest "examples/fileio.hedon" "yukayuka"

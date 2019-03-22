@@ -222,14 +222,6 @@ rem dataflow
   Quot.Type.swap compile
   drop
 ; immediate
-: bi@
-  Quot.dup
-  swap.unsafe
-  spill.unsafe drop.unsafe
-  compile
-  grow.unsafe restore.unsafe
-  compile
-; immediate
 
 rem op
 

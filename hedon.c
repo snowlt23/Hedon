@@ -21,13 +21,19 @@
 #define error(...) {fprintf(stderr, "error in %s: ", last_def()->name); fprintf(stderr, __VA_ARGS__); fprintf(stderr, " at %s", intoken->name); exit(1);}
 
 #define spill_globaltype \
-  Stack* tmpb = comp_typein; \
-  Stack* tmpa = comp_typeout; \
+  Stack* itmpin = imm_typein; \
+  Stack* itmpout = imm_typeout; \
+  Stack* ctmpin = comp_typein; \
+  Stack* ctmpout = comp_typeout; \
+  imm_typein = new_stack(); \
+  imm_typeout = new_stack(); \
   comp_typein = new_stack(); \
   comp_typeout = new_stack();
 #define restore_globaltype \
-  comp_typein = tmpb; \
-  comp_typeout = tmpa;
+  imm_typein = itmpin; \
+  imm_typeout = itmpout; \
+  comp_typein = ctmpin; \
+  comp_typeout = ctmpout;
 #define start_codegenstate(b) \
   bool tmpcs = codegenstate; \
   codegenstate = b;
