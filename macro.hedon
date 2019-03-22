@@ -1,6 +1,8 @@
 : 2dup
   swap dup [ swap dup ] dip swap
 ;
+: 2apply dup compile [ swap ] postcompile compile [ swap ] postcompile ; immediate
+
 rem n q --
 : do
   [ 0 ] postcompile

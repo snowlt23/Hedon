@@ -122,6 +122,7 @@ runtest ": main 1 2 3 4 5 6 test.call6 c.call6 . ; main" "-19"
 
 # string
 runtest ": main \"yukarin\" strlen . ; main" "7"
+runtest ": main 7 new-cstr [ \"yukarin\" strcpy ] keep .s ; main" "yukarin"
 
 # file
 filetest "examples/fileio.hedon" "yukayuka"

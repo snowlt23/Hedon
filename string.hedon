@@ -2,11 +2,11 @@
   0 swap [ dup c@ 0 eq not ] [ swap 1+ swap 1 s+ ] while drop
 ;
 
+rem d s
+: chrcpy u8@ swap u8! ;
 rem d s n
-: memcpy
-  
-;
-
-: string
-
-;
+: memcpy [ [ 2dup chrcpy [ 1 p+ ] 2apply ] 2dip ] do ;
+rem d s n
+: strcpyn [ [ cstr->pointer ] 2apply ] dip memcpy ;
+: strcpy dup strlen strcpyn ;
+: new-cstr 1+ c.malloc pointer->cstr ;

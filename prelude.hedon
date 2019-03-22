@@ -26,6 +26,7 @@
 : to-int ; !( Pointer -- Int )
 : to-cstr ; !( Pointer -- Cstr )
 : cstr->pointer ; !( Cstr -- Pointer )
+: pointer->cstr ; !( Pointer -- Cstr )
 : to-bool ; !( Int -- Bool )
 : true 1 ; !( -- Bool )
 : false 0 ; !( -- Bool )
@@ -122,6 +123,8 @@
 : p@ @ ; !( Pointer -- Pointer )
 : p! ! ; !( Pointer Pointer -- )
 : s+ + ; !( Cstr Int -- Cstr )
+: u8@ >rax [ 0x8a 0x00 0x48 0x0f 0xb6 0xc0 ] X rax> ; !( Pointer -- Int )
+: u8! >rax >rcx [ 0x88 0x08 ] X ; !( Int Pointer -- )
 : c@ >rax [ 0x8a 0x00 0x48 0x0f 0xb6 0xc0 ] X rax> ; !( Cstr -- Int )
 : c! >rax >rcx [ 0x88 0x08 ] X ; !( Int Pointer -- )
 : Int.pick3.eff
