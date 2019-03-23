@@ -812,7 +812,7 @@ void word_force_effects() {
       inout = EFF_OUT;
       continue;
     }
-    if (t->kind == TOKEN_NAME && strcmp(t->name, ")") == 0) break;
+    if (t->kind == TOKEN_NAME && strcmp(t->name, "]") == 0) break;
     Def* eff = search_def(t->name);
     if (eff == NULL) error("undefined %s word", t->name);
     push(def->effects, new_eff(eff, inout));
@@ -1195,8 +1195,8 @@ void eval_token(Token* token) {
   BUILTIN_WORD(":", word_def, 0, {});
   BUILTIN_WORD("immediate", word_immediate, 0, {});
   BUILTIN_IMM_WORD("trait", word_trait);
-  BUILTIN_WORD("impl>", word_impl, 0, {});
-  BUILTIN_IMM_WORD("!(", word_force_effects);
+  BUILTIN_WORD("impl", word_impl, 0, {});
+  BUILTIN_IMM_WORD("![", word_force_effects);
   BUILTIN_IMM_WORD("eff.attach", word_eff_attach);
   BUILTIN_IMM_WORD("X", word_X);
 
@@ -1340,11 +1340,13 @@ int main(int argc, char** argv) {
     if (strcmp(argv[i], "-l") == 0) {
       i++;
       if (i >= argc) ierror("require filename argument by -l option");
-      eval_file(fopen(argv[i], "r"));
+      eval_file_path(argv[i]);
     } else if (strcmp(argv[i], "-c") == 0) {
       return 0;
-    } else {
+    } else if (argv[i][0] == '-') {
       ierror("unknown cmdline argument: %s", argv[i]);
+    } else {
+      eval_file_path(argv[i]);
     }
   }
 

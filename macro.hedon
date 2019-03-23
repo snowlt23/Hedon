@@ -6,7 +6,7 @@
 rem n q --
 : do
   [ 0 ] postcompile
-  [ 2dup > ] postquot
+  [ 2dup gr ] postquot
   [ [ 1+ ] postquot combine ] dip
   swap [ while ] postcompile
 ; immediate

@@ -73,8 +73,8 @@ runtest ": main 0 9 dp Int.pick3 drop p@ ! dp p@ @ . ; main" "9"
 runtest "0 dp p@ ! 45 dp p@ +! dp p@ @ ." "45"
 runtest "1 , 2 , 3 , dp@ cell p- @ ." "3"
 # runtest "9 const nine nine ." "9"
-runtest "var fz !( -- Pointer ) 555 fz ! fz @ ." "555"
-runtest "var aaa !( -- Pointer ) var bbb !( -- Pointer ) 123 aaa ! 456 bbb ! aaa @ . bbb @ ." "123456"
+runtest "var fz ![ -- Pointer ] 555 fz ! fz @ ." "555"
+runtest "var aaa ![ -- Pointer ] var bbb ![ -- Pointer ] 123 aaa ! 456 bbb ! aaa @ . bbb @ ." "123456"
 exittest "4 . 5 . 23 exit 6 ." "23"
 runtest ": hello \"Hello Yukari!\" .s ; hello" "Hello Yukari!"
 # errortest ": main ; drop" "error in main: stack is empty, but expected a value at drop"
@@ -102,7 +102,7 @@ runtest ": main false [ 4 ] [ 5 ] if . 6 . ; main" "56"
 runtest ": nnot [ false ] [ true ] if ; true nnot .b false nnot .b" "01"
 errortest ": main true [ 4 ] [ ] if ; main" "Int <->  error in main: unmatch out-effect at if"
 errortest ": main true [ . ] [ ] if ; main" "Int <->  error in main: unmatch in-effect at if"
-runtest ": main 0 [ dup 10 < ] [ dup . 1 + ] while ; main" "0123456789"
+runtest ": main 0 [ dup 10 le ] [ dup . 1 + ] while ; main" "0123456789"
 
 filetest "examples/variable.hedon" "09"
 error_filetest "examples/err.hedon" "error in main2: unresolved drop trait word at drop"
@@ -112,7 +112,7 @@ error_filetest "examples/linear.hedon" "error in write-file-illegal: unmatch l.F
 
 # macro
 runtest ": main 4 5 2dup . . . . ; main" "5454"
-runtest ": main 5 0 [ 2dup > ] [ dup . 1+ ] while ; main" "01234"
+runtest ": main 5 0 [ 2dup gr ] [ dup . 1+ ] while ; main" "01234"
 runtest ": main 5 [ dup . ] do ; main" "01234"
 
 # cffi

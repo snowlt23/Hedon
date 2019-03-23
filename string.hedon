@@ -7,21 +7,21 @@ rem d s
 rem d s n
 : memcpy [ [ 2dup chrcpy [ 1 p+ ] bi@ ] 2dip ] do drop drop drop drop ;
 rem d s n
-: strcpyn [ [ cstr->pointer ] bi@ ] dip memcpy ;
+: strcpyn [ [ cstr-to-pointer ] bi@ ] dip memcpy ;
 : strcpy dup strlen 1+ strcpyn ;
-: new-cstr 1+ c.malloc pointer->cstr ;
+: new-cstr 1+ c.malloc pointer-to-cstr ;
 
 : String newtype ;
-: cstr->string ; !( Cstr -- String )
-: string->cstr ; !( String -- Cstr )
+: cstr-to-string ; ![ Cstr -- String ]
+: string-to-cstr ; ![ String -- Cstr ]
 : string-header-size cell cell + ;
-: string-cap ; !( String -- Pointer )
-: string-len cell p+ ; !( String -- Pointer )
-: string-data cell cell + p+ ; !( String -- Cstr )
-: String.dup Int.dup ; !( String -- String String ) impl> dup
-: String.swap Int.swap ; !( String String -- String String ) impl> swap
+: string-cap ; ![ String -- Pointer ]
+: string-len cell p+ ; ![ String -- Pointer ]
+: string-data cell cell + p+ ; ![ String -- Cstr ]
+: String.dup Int.dup ; ![ String -- String String ] impl dup
+: String.swap Int.swap ; ![ String String -- String String ] impl swap
 
-: new-string string-header-size + new-cstr cstr->string ;
+: new-string string-header-size + new-cstr cstr-to-string ;
 : length string-len @ ;
 : copy-and-seek Cstr.dup strlen [ [ strcpy ] 2keep Cstr.drop ] dip s+ ;
 : copy-to-string copy-and-seek drop ;

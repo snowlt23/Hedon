@@ -1,6 +1,6 @@
 : FErr newtype ;
-: open 1 0 ; !( -- Int FErr )
-: Err.drop Int.drop ; !( FErr )
+: open 1 0 ; ![ -- Int FErr ]
+: Err.drop Int.drop ; ![ FErr ]
 : try Err.drop ;
 
 : main1 open try ; main1

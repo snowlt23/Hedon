@@ -1,3 +1,3 @@
 : MyInt newtype ;
-: mi ; !( -- MyInt )
+: mi ; ![ -- MyInt ]
 mi mi + 0

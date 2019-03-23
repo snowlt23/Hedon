@@ -10,53 +10,53 @@
   write-r11-call
   [ rax> ] postcompile
   eff.load
-; immediate !( )
+; immediate ![ ]
 : c.call1
   Pointer eff.drop Int eff.drop Int eff.push eff.save
   [ >r11 >rdi ] postcompile
   write-r11-call
   [ rax> ] postcompile
   eff.load
-; immediate !( )
+; immediate ![ ]
 : c.call2
   Pointer eff.drop Int eff.drop Int eff.drop Int eff.push eff.save
   [ >r11 >rsi >rdi ] postcompile
   write-r11-call
   [ rax> ] postcompile
   eff.load
-; immediate !( )
+; immediate ![ ]
 : c.call3
   Pointer eff.drop Int eff.drop Int eff.drop Int eff.drop Int eff.push eff.save
   [ >r11 >rdx >rsi >rdi ] postcompile
   write-r11-call
   [ rax> ] postcompile
   eff.load
-; immediate !( )
+; immediate ![ ]
 : c.call4
   Pointer eff.drop Int eff.drop Int eff.drop Int eff.drop Int eff.drop Int eff.push eff.save
   [ >r11 >rcx >rdx >rsi >rdi ] postcompile
   write-r11-call
   [ rax> ] postcompile
   eff.load
-; immediate !( )
+; immediate ![ ]
 : c.call6
   Pointer eff.drop Int eff.drop Int eff.drop Int eff.drop Int eff.drop Int eff.drop Int eff.drop Int eff.push eff.save
   [ >r11 >r9 >r8 >rcx >rdx >rsi >rdi ] postcompile
   write-r11-call
   [ rax> ] postcompile
   eff.load
-; immediate !( )
+; immediate ![ ]
 
 : rtld-lazy 1 ;
 : rtld-now 2 ;
-: dlopen builtin.c.dlopen c.call2 ; !( Cstr Int -- Pointer )
-: dlsym builtin.c.dlsym c.call2 ; !( Pointer Cstr -- Pointer )
-: dlclose builtin.c.dlclose c.call1 ; !( Pointer )
+: dlopen builtin.c.dlopen c.call2 ; ![ Cstr Int -- Pointer ]
+: dlsym builtin.c.dlsym c.call2 ; ![ Pointer Cstr -- Pointer ]
+: dlclose builtin.c.dlclose c.call1 ; ![ Pointer ]
 
-var libc.handle !( -- Pointer )
-var c.malloc.ptr !( -- Pointer )
+var libc.handle ![ -- Pointer ]
+var c.malloc.ptr ![ -- Pointer ]
 : open-libc "libc.so.6" rtld-lazy dlopen libc.handle p! ;
 : load-libc-symbols libc.handle p@ "malloc" dlsym c.malloc.ptr p! ;
-: c.malloc c.malloc.ptr p@ c.call1 ; !( Int -- Pointer )
+: c.malloc c.malloc.ptr p@ c.call1 ; ![ Int -- Pointer ]
 open-libc
 load-libc-symbols

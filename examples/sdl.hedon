@@ -1,30 +1,30 @@
-var sdl.shared !( -- Pointer )
-var sdl.get-error.ptr !( -- Pointer )
-var sdl.init.ptr !( -- Pointer )
-var sdl.poll-event.ptr !( -- Pointer )
-var sdl.quit.ptr !( -- Pointer )
-var sdl.create-window.ptr !( -- Pointer )
-var sdl.destroy-window.ptr !( -- Pointer )
-var sdl.create-renderer.ptr !( -- Pointer )
-var sdl.create-texture-from-surface.ptr !( -- Pointer )
-var sdl.destroy-texture.ptr !( -- Pointer )
-var sdl.render-copy.ptr !( -- Pointer )
-var sdl.render-present.ptr !( -- Pointer )
-var sdl.load-bmp-rw.ptr !( -- Pointer )
-var sdl.rw-from-file.ptr !( -- Pointer )
-var sdl.free-surface.ptr !( -- Pointer )
-var sdl.blit-surface.ptr !( -- Pointer )
-var sdl.get-window-surface.ptr !( -- Pointer )
+var sdl.shared ![ -- Pointer ]
+var sdl.get-error.ptr ![ -- Pointer ]
+var sdl.init.ptr ![ -- Pointer ]
+var sdl.poll-event.ptr ![ -- Pointer ]
+var sdl.quit.ptr ![ -- Pointer ]
+var sdl.create-window.ptr ![ -- Pointer ]
+var sdl.destroy-window.ptr ![ -- Pointer ]
+var sdl.create-renderer.ptr ![ -- Pointer ]
+var sdl.create-texture-from-surface.ptr ![ -- Pointer ]
+var sdl.destroy-texture.ptr ![ -- Pointer ]
+var sdl.render-copy.ptr ![ -- Pointer ]
+var sdl.render-present.ptr ![ -- Pointer ]
+var sdl.load-bmp-rw.ptr ![ -- Pointer ]
+var sdl.rw-from-file.ptr ![ -- Pointer ]
+var sdl.free-surface.ptr ![ -- Pointer ]
+var sdl.blit-surface.ptr ![ -- Pointer ]
+var sdl.get-window-surface.ptr ![ -- Pointer ]
 
-var loader !( -- Pointer )
-var load.var !( -- Pointer )
-var loadtype.var !( -- Pointer )
-: loader@ loader @ ; !( -- Quot )
-: loader! loader ! ; !( Quot -- )
-: load@ load.var @ ; !( -- Token )
-: load! load.var ! ; !( Token -- )
-: loadtype@ loadtype.var @ ; !( -- Token )
-: loadtype! loadtype.var ! ; !( Token -- )
+var loader ![ -- Pointer ]
+var load.var ![ -- Pointer ]
+var loadtype.var ![ -- Pointer ]
+: loader@ loader @ ; ![ -- Quot ]
+: loader! loader ! ; ![ Quot -- ]
+: load@ load.var @ ; ![ -- Token ]
+: load! load.var ! ; ![ Token -- ]
+: loadtype@ loadtype.var @ ; ![ -- Token ]
+: loadtype! loadtype.var ! ; ![ Token -- ]
 
 : init-loader quot loader! ;
 : push-loader loader@ push ;
@@ -82,11 +82,11 @@ def-loader sdl.load-symbols
 : sdl.Texture newtype ;
 
 : sdl.Event.size 56 ;
-: sdl.Event.init sp@ sdl.Event.size p- cell p+ sp! ; !( -- sdl.EventU )
-: sdl.EventU.drop sp@ sdl.Event.size p+ cell p+ sp! ; !( sdl.EventU -- ) impl> drop
-: sdl.Event.drop Int.drop ; !( sdl.Event -- ) impl> drop
-: sdl.Event.lent sp@ cell p+ ; !( sdl.EventU -- sdl.EventU sdl.Event ) impl> lent
-: sdl.Event.type u32@ ; !( sdl.Event -- Int )
+: sdl.Event.init sp@ sdl.Event.size p- cell p+ sp! ; ![ -- sdl.EventU ]
+: sdl.EventU.drop sp@ sdl.Event.size p+ cell p+ sp! ; ![ sdl.EventU -- ] impl drop
+: sdl.Event.drop Int.drop ; ![ sdl.Event -- ] impl drop
+: sdl.Event.lent sp@ cell p+ ; ![ sdl.EventU -- sdl.EventU sdl.Event ] impl lent
+: sdl.Event.type u32@ ; ![ sdl.Event -- Int ]
 
 rem flags
 : sdl.init-video 0x20 ;
@@ -98,49 +98,49 @@ rem : sdl.windowpos-undefined 0x1fff0000 ;
 : sdl.quit-event 0x100 ;
 : sdl.default-pos sdl.windowpos-undefined sdl.windowpos-undefined ;
 
-: sdl.get-error sdl.get-error.ptr p@ c.call0 ; !( -- Cstr )
+: sdl.get-error sdl.get-error.ptr p@ c.call0 ; ![ -- Cstr ]
 : sdl.init
   sdl.init-shared
   sdl.init.ptr p@ c.call1 to-bool [ sdl.get-error .s ] when
 ;
-: sdl.poll-event sdl.poll-event.ptr p@ c.call1 ; !( sdl.Event -- Bool )
+: sdl.poll-event sdl.poll-event.ptr p@ c.call1 ; ![ sdl.Event -- Bool ]
 : sdl.quit sdl.quit.ptr p@ c.call0 Int.drop ;
-: sdl.create-window sdl.create-window.ptr p@ c.call6 ; !( Cstr Int Int Int Int Int -- sdl.WindowU )
-: sdl.destroy-window.unsafe sdl.destroy-window.ptr p@ c.call1 Int.drop ; !( sdl.WindowU -- )
-: sdl.update-window-surface sdl.update-window-surface.ptr p@ c.call1 Int.drop ; !( sdl.Window )
-: sdl.WindowU.lent Int.dup ; !( sdl.WindowU -- sdl.WindowU sdl.Window ) impl> lent
-: sdl.WindowU.drop sdl.destroy-window.unsafe ; impl> drop
-: sdl.WindowU.ret ; !( sdl.WindowU -- sdl.WindowU )
-: sdl.WindowU.dummy ; !( -- sdl.WindowU )
+: sdl.create-window sdl.create-window.ptr p@ c.call6 ; ![ Cstr Int Int Int Int Int -- sdl.WindowU ]
+: sdl.destroy-window.unsafe sdl.destroy-window.ptr p@ c.call1 Int.drop ; ![ sdl.WindowU -- ]
+: sdl.update-window-surface sdl.update-window-surface.ptr p@ c.call1 Int.drop ; ![ sdl.Window ]
+: sdl.WindowU.lent Int.dup ; ![ sdl.WindowU -- sdl.WindowU sdl.Window ] impl lent
+: sdl.WindowU.drop sdl.destroy-window.unsafe ; impl drop
+: sdl.WindowU.ret ; ![ sdl.WindowU -- sdl.WindowU ]
+: sdl.WindowU.dummy ; ![ -- sdl.WindowU ]
 
-: sdl.create-renderer sdl.create-renderer.ptr p@ c.call3 ; !( sdl.Window Int Int -- sdl.RendererU )
-: sdl.create-texture-from-surface sdl.create-texture-from-surface.ptr p@ c.call2 ; !( sdl.Renderer sdl.Surface -- sdl.TextureU )
-: sdl.render-copy sdl.render-copy.ptr p@ c.call4 Int.drop ; !( sdl.Renderer sdl.Texture Pointer Pointer )
-: sdl.render-present sdl.render-present.ptr p@ c.call1 Int.drop ; !( sdl.Renderer )
+: sdl.create-renderer sdl.create-renderer.ptr p@ c.call3 ; ![ sdl.Window Int Int -- sdl.RendererU ]
+: sdl.create-texture-from-surface sdl.create-texture-from-surface.ptr p@ c.call2 ; ![ sdl.Renderer sdl.Surface -- sdl.TextureU ]
+: sdl.render-copy sdl.render-copy.ptr p@ c.call4 Int.drop ; ![ sdl.Renderer sdl.Texture Pointer Pointer ]
+: sdl.render-present sdl.render-present.ptr p@ c.call1 Int.drop ; ![ sdl.Renderer ]
 
-: sdl.rw-from-file sdl.rw-from-file.ptr p@ c.call2 ; !( Cstr Cstr -- Int )
-: sdl.load-bmp "rb" sdl.rw-from-file 1 sdl.load-bmp-rw.ptr p@ c.call2 dup 0 eq ; !( Cstr -- sdl.SurfaceU Bool )
-: sdl.free-surface.unsafe sdl.free-surface.ptr p@ c.call1 Int.drop ; !( sdl.SurfaceU -- )
-: sdl.SurfaceU.lent Int.dup ; !( sdl.SurfaceU -- sdl.SurfaceU sdl.Surface ) impl> lent
-: sdl.SurfaceU.drop sdl.free-surface.unsafe ; impl> drop
-: sdl.SurfaceU.ret ; !( sdl.SurfaceU -- sdl.SurfaceU )
-: sdl.SurfaceU.dummy ; !( -- sdl.SurfaceU )
+: sdl.rw-from-file sdl.rw-from-file.ptr p@ c.call2 ; ![ Cstr Cstr -- Int ]
+: sdl.load-bmp "rb" sdl.rw-from-file 1 sdl.load-bmp-rw.ptr p@ c.call2 dup 0 eq ; ![ Cstr -- sdl.SurfaceU Bool ]
+: sdl.free-surface.unsafe sdl.free-surface.ptr p@ c.call1 Int.drop ; ![ sdl.SurfaceU -- ]
+: sdl.SurfaceU.lent Int.dup ; ![ sdl.SurfaceU -- sdl.SurfaceU sdl.Surface ] impl lent
+: sdl.SurfaceU.drop sdl.free-surface.unsafe ; impl drop
+: sdl.SurfaceU.ret ; ![ sdl.SurfaceU -- sdl.SurfaceU ]
+: sdl.SurfaceU.dummy ; ![ -- sdl.SurfaceU ]
 
-: sdl.destroy-texture.unsafe sdl.destroy-texture.ptr p@ c.call1 Int.drop ; !( sdl.TextureU -- )
-: sdl.RendererU.lent Int.dup ; !( sdl.RendererU -- sdl.RendererU sdl.Renderer ) impl> lent
-: sdl.TextureU.lent Int.dup ; !( sdl.TextureU -- sdl.TextureU sdl.Texture ) impl> lent
-: sdl.TextureU.drop sdl.destroy-texture.unsafe ; impl> drop
+: sdl.destroy-texture.unsafe sdl.destroy-texture.ptr p@ c.call1 Int.drop ; ![ sdl.TextureU -- ]
+: sdl.RendererU.lent Int.dup ; ![ sdl.RendererU -- sdl.RendererU sdl.Renderer ] impl lent
+: sdl.TextureU.lent Int.dup ; ![ sdl.TextureU -- sdl.TextureU sdl.Texture ] impl lent
+: sdl.TextureU.drop sdl.destroy-texture.unsafe ; impl drop
 
 rem ------ examples ------
 
-var window.ptr !( -- Pointer )
-: window@ window.ptr @ ; !( -- sdl.Window )
-: window@.unsafe window.ptr @ ; !( -- sdl.WindowU )
-: window! window.ptr ! ; !( sdl.WindowU -- )
+var window.ptr ![ -- Pointer ]
+: window@ window.ptr @ ; ![ -- sdl.Window ]
+: window@.unsafe window.ptr @ ; ![ -- sdl.WindowU ]
+: window! window.ptr ! ; ![ sdl.WindowU -- ]
 : window.drop window@.unsafe sdl.destroy-window.unsafe ;
-var renderer.ptr !( -- Pointer )
-: renderer@ renderer.ptr @ ; !( -- sdl.Renderer )
-: renderer! renderer.ptr ! ; !( sdl.RendererU -- )
+var renderer.ptr ![ -- Pointer ]
+: renderer@ renderer.ptr @ ; ![ -- sdl.Renderer ]
+: renderer! renderer.ptr ! ; ![ sdl.RendererU -- ]
 
 : print-error
   sdl.get-error .s cr
@@ -158,8 +158,8 @@ var renderer.ptr !( -- Pointer )
 : isquit lent sdl.Event.type sdl.quit-event eq ;
 : quit sdl.TextureU.drop sdl.SurfaceU.drop window.drop sdl.quit ;
 
-: Texture.Renderer.swap Int.swap ; !( sdl.Texture sdl.Renderer -- sdl.Renderer sdl.Texture ) impl> swap
-: Surface.Renderer.swap Int.swap ; !( sdl.Surface sdl.Renderer -- sdl.Renderer sdl.Surface ) impl> swap
+: Texture.Renderer.swap Int.swap ; ![ sdl.Texture sdl.Renderer -- sdl.Renderer sdl.Texture ] impl swap
+: Surface.Renderer.swap Int.swap ; ![ sdl.Surface sdl.Renderer -- sdl.Renderer sdl.Surface ] impl swap
 : new-tex
   lent renderer@ swap sdl.create-texture-from-surface
 ;
