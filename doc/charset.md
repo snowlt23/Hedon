@@ -4,20 +4,26 @@
 
 **Hedon charset**
 - [a-zA-Z] alphabet
+- [0-9] numeric
 - @ fetch
 - ! store
 - . dot
-- , comma
-- + plus
+- \+ plus
 - \- of
-- * asterisk
-- / slash
+- " str
+- [ begin-quot
+- ] end-quot
+- : begin-def
+- ; end-def
+
+**Not used**
+- \# $ % & ' ( ) = ^ ~ \ | ` { } * < > , . ? / _
 
 **Hedon word compared to C operator**
 - \+ \+
 - \- \-
-- \* \*
-- / /
+- \* mul
+- / div
 - % mod
 - | bor
 - & band
@@ -25,6 +31,6 @@
 - \>> shr
 - \< le
 - \> gr
-- &. ref (addr)
-- *. de
-- -. neg
+- \<= leq
+- \>= grq
+- \* @
