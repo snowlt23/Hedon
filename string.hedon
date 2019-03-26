@@ -12,23 +12,29 @@ rem d s n
 : new-cstr 1+ c.malloc pointer-to-cstr ;
 
 : String newtype ;
-: cstr-to-string ; ![ Cstr -- String ]
-: string-to-cstr ; ![ String -- Cstr ]
-: string-header-size cell cell + ;
-: string-cap ; ![ String -- Pointer ]
-: string-len cell p+ ; ![ String -- Pointer ]
-: string-data cell cell + p+ ; ![ String -- Cstr ]
+: pointer-to-string ; ![ Pointer -- String ]
+: string-to-pointer ; ![ String -- Pointer ]
+: String.head-size cell cell + ;
+: String.cap ; ![ String -- Pointer ]
+: String.len cell p+ ; ![ String -- Pointer ]
+: String.data cell cell + p+ ; ![ String -- Cstr ]
 : String.dup Int.dup ; ![ String -- String String ] impl dup
 : String.swap Int.swap ; ![ String String -- String String ] impl swap
 
-: new-string string-header-size + new-cstr cstr-to-string ;
-: length string-len @ ;
+: length String.len @ ;
+: String.need-extend [ length + ] keep String.cap @ le not ;
+: String.2cap dup String.cap @ dup + swap String.cap ! ;
+: String.extend-cap [ 2dup String.need-extend ] [ dup String.2cap ] while ;
+: String.realloc [ string-to-pointer ] keep String.cap @ String.head-size + realloc pointer-to-string ;
+: String.extend dup String.extend-cap String.realloc ;
+: String.extend-if-need 2dup String.need-extend [ drop String.extend ] when drop drop ;
+
+: new-string String.head-size + 1 + alloc pointer-to-string ;
+: string dup strlen new-string [ String.data swap strcpy ] keep ;
+: .ss String.data .s ;
+
 : copy-and-seek Cstr.dup strlen [ [ strcpy ] 2keep Cstr.drop ] dip s+ ;
-: copy-to-string copy-and-seek drop ;
-: string dup strlen new-string [ string-data swap strcpy ] keep ;
 : 2length [ length ] bi@ + ;
 : alloc-2string 2length new-string ;
 : 2copy-string swap copy-and-seek swap copy-and-seek drop ;
-: concat swap 2dup alloc-2string [ string-data [ [ string-data ] bi@ ] dip 2copy-string ] keep ;
-: .ss string-data .s ;
-
+: concat swap 2dup alloc-2string [ String.data [ [ String.data ] bi@ ] dip 2copy-string ] keep ;

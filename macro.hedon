@@ -10,3 +10,14 @@ rem n q --
   [ [ 1+ ] postquot combine ] dip
   swap [ while ] postcompile
 ; immediate
+
+rem n "name"
+: return-pointer Pointer eff.push ;
+: array dp @ literal token-to-quot parse-token create-def [ return-pointer ] eff.postattach ;
+: array-addr-by-index cell mul p+ ;
+: array@ swap array-addr-by-index @ ;
+: array! swap array-addr-by-index ! ;
+: Int.allot cell mul allot ;
+
+: test-check [ drop ] [ "[ERROR] " .s .s 1 exit ] if ;
+: test compile [ test-check ] postcompile ; immediate

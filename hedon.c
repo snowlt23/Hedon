@@ -167,6 +167,7 @@ Type* cstrt;
 
 void call_word_asm(uint8_t** spp, uint8_t* wp);
 
+Def* last_def();
 Token* parse_token();
 void print_quot(Stack* q);
 void print_token(Token* t);
@@ -207,11 +208,11 @@ Stack* dup_stack(Stack* s) {
   (s->p += sizeof(T), *(T*)(s->p - sizeof(T)))
 
 void push(Stack* s, void* v) {
-  assert(s->s <= s->p);
+  if (!(s->s <= s->p)) error("stack overflow");
   pushT(s, void*, v);
 }
 void* pop(Stack* s) {
-  assert(s->s+s->cap >= s->p);
+  if (!(s->s+s->cap >= s->p)) error("stack underflow");
   return popT(s, void*);
 }
 
@@ -799,6 +800,27 @@ void word_eff_attach() {
   push(def->effects, new_eff(eff, EFF_IMM));
 }
 
+void word_eff_tokenattach() {
+  Def* def = last_def();
+  def->freezein = NULL;
+  def->freezeout = NULL;
+  def->effects = new_stack();
+  Token* t = (Token*)pop_x();
+  Def* eff = search_def(t->name);
+  if (eff == NULL) error("undefined %s word", t->name);
+  push(def->effects, new_eff(eff, EFF_IMM));
+}
+
+void word_eff_postattach() {
+  imm_pop_type(quott);
+  Stack* q = (Stack*)pop_x();
+  assert(stacklen(q) == 1);
+  Token* t = get(q, 0);
+  write_x((size_t)t);
+  write_call_builtin(word_eff_tokenattach);
+  write_stack_increment(-8);
+}
+
 void word_force_effects() {
   Def* def = last_def();
   def->effects = new_stack();
@@ -1198,6 +1220,7 @@ void eval_token(Token* token) {
   BUILTIN_WORD("impl", word_impl, 0, {});
   BUILTIN_IMM_WORD("![", word_force_effects);
   BUILTIN_IMM_WORD("eff.attach", word_eff_attach);
+  BUILTIN_IMM_WORD("eff.postattach", word_eff_postattach);
   BUILTIN_IMM_WORD("X", word_X);
 
   // builtin for type def

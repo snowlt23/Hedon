@@ -57,6 +57,8 @@ runtest ": add5 5 + ; dump-type add5" "Int -- Int"
 runtest ": add5 5 + ; dump-effect add5" "Int:out Int:in Int:in Int:out "
 runtest ": add5 5 + ; : x9 4 add5 ; x9 ." "9"
 runtest ": m 5 eq ; 4 m .b 5 m .b" "01"
+runtest ": main 8 4 div . ; main" "2"
+runtest ": main 8 5 mod . ; main" "3"
 
 runtest "4 5 Int.drop ." "4"
 runtest "555 . cr 0 ." "555
@@ -114,6 +116,9 @@ error_filetest "examples/linear.hedon" "error in write-file-illegal: unmatch l.F
 runtest ": main 4 5 2dup . . . . ; main" "5454"
 runtest ": main 5 0 [ 2dup gr ] [ dup . 1+ ] while ; main" "01234"
 runtest ": main 5 [ dup . ] do ; main" "01234"
+runtest "array K 5 , 4 , 5 , : main 0 K array@ . 1 K array@ . 2 K array@ . ; main" "545"
+runtest ": run-test \"aaa\" [ 1 1 eq ] test ; run-test 9 ." "9"
+runtest ": run-test \"0eq1\" [ 0 1 eq ] test ; run-test 9 ." "[ERROR] 0eq1"
 
 # cffi
 runtest ": main 9 test.call1 c.call1 . ; main" "9"

@@ -56,6 +56,7 @@
 : >r11 [ 0x4c 0x8b 0x1b ] X Int.drop ;
 : rax> grow [ 0x48 0x89 0x03 ] X ;
 : rcx> grow [ 0x48 0x89 0x0b ] X ;
+: rdx> grow [ 0x48 0x89 0x13 ] X ;
 : Int.dup >rax grow rax> ; impl dup
 : Cstr.dup Int.dup ; ![ Cstr -- Cstr Cstr ] impl dup
 : Type.dup Int.dup ; ![ Type -- Type Type ] impl dup
@@ -88,6 +89,9 @@
 
 : + >rcx >rax [ 0x48 0x01 0xc8 ] X rax> ;
 : - >rcx >rax [ 0x48 0x29 0xc8 ] X rax> ;
+: mul >rcx >rax [ 0x48 0xf7 0xe1 ] X rax> ;
+: div 0 >rdx >rcx >rax [ 0x48 0xf7 0xf9 ] X rax> ;
+: mod 0 >rdx >rcx >rax [ 0x48 0xf7 0xf9 ] X rdx> ;
 : p+ + ; ![ Pointer Int -- Pointer ]
 : p- - ; ![ Pointer Int -- Pointer ]
 : pp+ + ; ![ Pointer Pointer -- Pointer ]
@@ -109,6 +113,12 @@
 : gr
   swap le
 ;
+
+: shl >rcx >rax [ 0x48 0xd3 0xe0 ] X rax> ;
+: shr >rcx >rax [ 0x48 0xd3 0xe8 ] X rax> ;
+: bor >rcx >rax [ 0x48 0x09 0xc8 ] X rax> ;
+: band >rcx >rax [ 0x48 0x21 0xc8 ] X rax> ;
+: xor >rcx >rax [ 0x48 0x31 0xc8 ] X rax> ;
 
 : >rbx [ 0x48 0x8b 0x1b ] X ; ![ Int -- ]
 : rbx> grow [ 0x48 0x89 0x1b ] X ;

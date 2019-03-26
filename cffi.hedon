@@ -55,8 +55,16 @@
 
 var libc.handle ![ -- Pointer ]
 var c.malloc.ptr ![ -- Pointer ]
+var c.realloc.ptr ![ -- Pointer ]
 : open-libc "libc.so.6" rtld-lazy dlopen libc.handle p! ;
-: load-libc-symbols libc.handle p@ "malloc" dlsym c.malloc.ptr p! ;
+: load-libc-symbols
+  libc.handle p@ "malloc" dlsym c.malloc.ptr p!
+  libc.handle p@ "realloc" dlsym c.realloc.ptr p!
+;
 : c.malloc c.malloc.ptr p@ c.call1 ; ![ Int -- Pointer ]
+: c.realloc c.realloc.ptr p@ c.call2 ; ![ Pointer Int -- Pointer ]
 open-libc
 load-libc-symbols
+
+: alloc c.malloc ;
+: realloc c.realloc ;
