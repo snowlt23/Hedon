@@ -134,7 +134,7 @@ typedef struct _Def {
   Stack* freezeout;
   bool immediate;
   Stack* traitwords;
-  bool template;
+  bool polymorphic;
 } Def;
 
 typedef struct {
@@ -311,12 +311,12 @@ Eff* new_eff(Def* def, EffKind kind) {
   return eff;
 }
 
-bool can_freeze(Stack* s) {
+bool is_polymorphic(Stack* s) {
   for (int i=0; i<stacklen(s); i++) {
     Type* t = get(s, i);
-    if (t->kind != TYPE_SINGLE) return false;
+    if (t->kind != TYPE_SINGLE) return true;
   }
-  return true;
+  return false;
 }
 
 Stack* freeze(Stack* s) {
@@ -340,7 +340,7 @@ Def* new_def() {
   def->bufferaddr = buffer;
   def->immediate = NULL;
   def->traitwords = NULL;
-  def->template = false;
+  def->polymorphic = false;
   return def;
 }
 
@@ -565,24 +565,18 @@ Token* parse_token() {
 Def* solve_trait_word(Stack* defs) {
   for (int i=0; i<stacklen(defs); i++) {
     Def* def = get(defs, i);
-    if (def->freezein == NULL) error("%s impl isn't freezing", def->name);
+    if (def->polymorphic) error("%s impl is polymorphic", def->name);
+    assert(def->freezein != NULL);
     if (eq_in(comp_typeout, def->freezein)) return def;
   }
   return NULL;
 }
 
-void to_effect(Def* def, Stack* s, EffKind kind) {
-  for (int i=0; i<stacklen(s); i++) {
-    Type* t = get(s, i);
-    Def* eff = search_def(t->name);
-    if (eff == NULL) error("undefined %s word", t->name);
-    push(def->effects, new_eff(eff, kind));
-  }
-}
-
 void apply_effects(Def* def) {
   Def* wdef = last_def();
-  if (def->freezein != NULL) {
+  if (!def->polymorphic) {
+    assert(def->freezein != NULL);
+    assert(def->freezeout != NULL);
     apply_in(wdef, def->freezein);
     apply_out(wdef, def->freezeout);
     return;
@@ -666,12 +660,9 @@ void word_def() {
 
   // type
   typing_quot(def->quot->quot);
-  if (can_freeze(comp_typein) && can_freeze(comp_typeout)) {
-    def->freezein = freeze(comp_typein);
-    def->freezeout = freeze(comp_typeout);
-  } else {
-    def->template = true;
-  }
+  def->freezein = freeze(comp_typein);
+  def->freezeout = freeze(comp_typeout);
+  def->polymorphic = is_polymorphic(comp_typein) || is_polymorphic(comp_typeout);
   // store inferred typestack for write
   comp_typeout = rev_stack(comp_typein);
   comp_typein = new_stack();
@@ -686,8 +677,6 @@ void word_def() {
 
   restore_globaltype;
   state = false;
-
-  // debug("%s %d", def->name, def->template);
 }
 
 void word_typeid() {
@@ -793,6 +782,7 @@ void word_eff_attach() {
   Def* def = last_def();
   def->freezein = NULL;
   def->freezeout = NULL;
+  def->polymorphic = true;
   def->effects = new_stack();
   Token* t = parse_token();
   Def* eff = search_def(t->name);
@@ -804,6 +794,7 @@ void word_eff_tokenattach() {
   Def* def = last_def();
   def->freezein = NULL;
   def->freezeout = NULL;
+  def->polymorphic = true;
   def->effects = new_stack();
   Token* t = (Token*)pop_x();
   Def* eff = search_def(t->name);
@@ -823,9 +814,10 @@ void word_eff_postattach() {
 
 void word_force_effects() {
   Def* def = last_def();
-  def->effects = new_stack();
   def->freezein = NULL;
   def->freezeout = NULL;
+  def->polymorphic = true;
+  def->effects = new_stack();
   EffKind inout = EFF_IN;
   for (;;) {
     Token* t = parse_token();
@@ -844,10 +836,9 @@ void word_force_effects() {
   spill_globaltype;
   state = true;
   apply_effects(def);
-  if (can_freeze(comp_typein) && can_freeze(comp_typeout)) {
-    def->freezein = freeze(comp_typein);
-    def->freezeout = freeze(comp_typeout);
-  }
+  def->freezein = freeze(comp_typein);
+  def->freezeout = freeze(comp_typeout);
+  def->polymorphic = is_polymorphic(comp_typein) || is_polymorphic(comp_typeout);
   state = false;
   restore_globaltype;
 }
@@ -879,11 +870,7 @@ void word_dump_type() {
   Token* t = parse_token();
   Def* def = search_def(t->name);
   if (def == NULL) error("undefined %s word in dump-type", t->name);
-  if (def->freezein != NULL) {
-    dump_typestack(stdout, rev_stack(def->freezein));
-    printf(" -- ");
-    dump_typestack(stdout, def->freezeout);
-  } else {
+  if (def->freezein == NULL || def->freezeout == NULL) {
     spill_globaltype;
     state = true;
     apply_effects(def);
@@ -892,6 +879,10 @@ void word_dump_type() {
     dump_typestack(stdout, comp_typeout);
     state = false;
     restore_globaltype;
+  } else {
+    dump_typestack(stdout, rev_stack(def->freezein));
+    printf(" -- ");
+    dump_typestack(stdout, def->freezeout);
   }
   fflush(stdout);
 }
@@ -1153,8 +1144,6 @@ void eval_token(Token* token) {
     if (def->immediate) {
       imm_apply_effects(def);
       call_word(def->wp);
-    } else if (def->template) {
-      expand_word(def);
     // } else if (is_trait(def) && !state) {
     //   error("trait can't call on toplevel in currently");
     } else if (is_trait(def) && !codegenstate) {
@@ -1162,12 +1151,13 @@ void eval_token(Token* token) {
     } else if (is_trait(def) && codegenstate) {
       Def* solved = solve_trait_word(def->traitwords);
       if (solved == NULL) {
-        if (last_def()->freezein != NULL) error("unresolved %s trait word", def->name);
-        last_def()->template = true;
+        if (!last_def()->polymorphic) error("unresolved %s trait word", def->name);
       } else {
         write_call_word((size_t)solved->wp);
       }
       apply_effects(def);
+    } else if (def->polymorphic) {
+      expand_word(def);
     } else if (state) {
       apply_effects(def);
       write_call_word((size_t)def->wp);
@@ -1348,6 +1338,7 @@ void eval_file_path(char* path) {
 
 void load_core() {
   eval_file_path("prelude.hedon");
+  eval_file_path("combinator.hedon");
   eval_file_path("cffi.hedon");
   eval_file_path("macro.hedon");
   eval_file_path("string.hedon");

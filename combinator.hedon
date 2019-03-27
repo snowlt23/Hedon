@@ -1,0 +1,165 @@
+rem dataflow
+: spill.unsafe 0xff op 0x33 op 0xff op 0x33 op ;
+: drop.unsafe 0x48 op 0x83 op 0xc3 op 0x08 op ;
+: restore.unsafe 0x8f op 0x03 op 0x8f op 0x03 op ;
+: grow.unsafe 0x48 op 0x83 op 0xeb op 0x08 op ;
+: >rax.unsafe >rax ; ![ ]
+: >rcx.unsafe >rcx ; ![ ]
+: rax>.unsafe rax> ; ![ ]
+: rcx>.unsafe rcx> ; ![ ]
+: swap.unsafe [ >rcx.unsafe >rax.unsafe rcx>.unsafe rax>.unsafe ] postcompile ;
+: dip
+  a dup eff.drop
+  spill.unsafe drop.unsafe
+  Quot.Type.swap compile
+  grow.unsafe restore.unsafe
+  eff.push
+; immediate
+: 2dip
+  a dup eff.drop
+  b dup eff.drop
+  spill.unsafe drop.unsafe
+  spill.unsafe drop.unsafe
+  [ Quot.Type.swap compile ] dip
+  grow.unsafe restore.unsafe
+  grow.unsafe restore.unsafe
+  eff.push
+  eff.push
+; immediate
+: 3dip
+  a dup eff.drop
+  b dup eff.drop
+  c dup eff.drop
+  spill.unsafe drop.unsafe
+  spill.unsafe drop.unsafe
+  spill.unsafe drop.unsafe
+  [ Quot.Type.swap compile ] 2dip
+  grow.unsafe restore.unsafe
+  grow.unsafe restore.unsafe
+  grow.unsafe restore.unsafe
+  eff.push
+  eff.push
+  eff.push
+; immediate
+: keep
+  a dup eff.drop dup eff.push
+  spill.unsafe
+  Quot.Type.swap compile
+  grow.unsafe restore.unsafe
+  eff.push
+; immediate
+: 2keep
+  a dup eff.drop b dup eff.drop dup eff.push [ dup eff.push ] dip
+  spill.unsafe
+  swap.unsafe
+  spill.unsafe
+  swap.unsafe
+  [ compile ] 2dip
+  grow.unsafe restore.unsafe
+  grow.unsafe restore.unsafe
+  eff.push
+  eff.push
+; immediate
+: bi
+  Quot.swap
+  a dup eff.drop
+  dup eff.push
+  spill.unsafe
+  Quot.Type.swap compile
+  dup eff.push
+  grow.unsafe restore.unsafe
+  Quot.Type.swap compile
+  drop
+; immediate
+
+rem op
+
+: take-byte shr 0xff band ;
+: fixup-byte take-byte Pointer.Int.swap fixup-op ;
+: next-byte [ 1 p+ ] dip ;
+: fixup-lendian32
+  [ 0 fixup-byte ] 2keep next-byte
+  [ 8 fixup-byte ] 2keep next-byte
+  [ 16 fixup-byte ] 2keep next-byte
+  [ 24 fixup-byte ] 2keep next-byte
+  drop drop
+;
+: op-lendian32
+  dup 0 take-byte op
+  dup 8 take-byte op
+  dup 16 take-byte op
+  24 take-byte op
+;
+: op-lendian64
+  dup 0 take-byte op
+  dup 8 take-byte op
+  dup 16 take-byte op
+  dup 24 take-byte op
+  dup 32 take-byte op
+  dup 40 take-byte op
+  dup 48 take-byte op
+  56 take-byte op
+;
+
+: get-rel cp @ Int.swap - ;
+: fixup-to-end 4 p+ to-int ;
+: fixup-by-here dup fixup-to-end get-rel fixup-lendian32 ;
+: write-to-here to-int cp@ fixup-to-end - op-lendian32 ;
+
+rem meta
+
+: dp builtin.dp ; ![ -- Pointer ]
+: dp@ dp p@ ;
+: here dp@ ;
+: allot dp +! ;
+: , here ! cell allot ;
+: pointer ; ![ -- Pointer ]
+: token-to-quot quot dup [ push ] dip ;
+: var-def dp @ literal token-to-quot swap create-def 0 , ;
+: var parse-token var-def ;
+
+rem controlflow
+
+: write-je 0x0f op 0x84 op cp@ 0 op-lendian32 ;
+: write-when
+  0x48 op 0x8b op 0x03 op         rem mov rax [rbx]
+  0x48 op 0x83 op 0xc3 op 0x08 op rem add rbx 8
+  0x48 op 0x83 op 0xf8 op 0x00 op rem cmp rax, 0
+  write-je
+;
+: when
+  Bool eff.drop
+  eff.save dup
+  write-when [ compile ] 3dip fixup-by-here
+  eff.save eff.check eff.load
+; immediate
+
+: write-else
+  write-when [ compile ] dip 0xe9 op 0 op-lendian32 fixup-by-here cp@ 4 p-
+;
+: if
+  Bool eff.drop
+  Quot.swap
+  eff.save
+  [ write-else ] dip
+  eff.save [ eff.load ] dip
+  [ compile ] 2dip [ fixup-by-here ] dip
+  eff.save eff.check
+; immediate
+: not [ false ] [ true ] if ;
+
+: write-while
+  0x48 op 0x8b op 0x03 op         rem mov rax [rbx]
+  0x48 op 0x83 op 0xc3 op 0x08 op rem add rbx 8
+  0x48 op 0x83 op 0xf8 op 0x00 op rem cmp rax 0
+  write-je
+;
+: while
+  cp@
+  [ Quot.swap compile ] dip
+  Bool eff.drop
+  write-while
+  [ compile ] 2dip 0xe9 op
+  Pointer.swap write-to-here
+  fixup-by-here
+; immediate
