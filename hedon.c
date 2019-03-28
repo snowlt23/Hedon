@@ -106,12 +106,13 @@ typedef struct {
 typedef enum {
   TYPE_SINGLE,
   TYPE_PARAM,
+  TYPE_REF,
 } TypeKind;
 typedef struct _Type {
   TypeKind kind;
   char* name;
   size_t id;
-  Stack* params;
+  struct _Type* ref;
 } Type;
 
 typedef enum {
@@ -265,7 +266,7 @@ Type* new_type(char* name, size_t id) {
   t->kind = TYPE_SINGLE;
   t->name = name;
   t->id = id;
-  t->params = NULL;
+  t->ref = NULL;
   return t;
 }
 
@@ -285,10 +286,23 @@ Type* init_paramtype(char* name, size_t id) {
   return t;
 }
 
+Type* init_reftype(Type* ref) {
+  Type* t = new_type(ref->name, ref->id);
+  t->kind = TYPE_REF;
+  t->ref = ref;
+  return t;
+}
+
+Type* init_paramtype_ref(char* name, size_t id) {
+  return init_reftype(init_paramtype(name, id));
+}
+
 bool eqtype(Type* a, Type* b) {
   if (a->id == b->id) return true;
   if (a->kind == TYPE_PARAM) return true;
   if (b->kind == TYPE_PARAM) return true;
+  if (a->kind == TYPE_REF) return eqtype(a->ref, b);
+  if (b->kind == TYPE_REF) return eqtype(a, b->ref);
   return false;
 }
 
@@ -311,10 +325,15 @@ Eff* new_eff(Def* def, EffKind kind) {
   return eff;
 }
 
+bool is_polytype(Type* t) {
+  if (t->kind == TYPE_REF) return is_polytype(t->ref);
+  return t->kind != TYPE_SINGLE;
+}
+
 bool is_polymorphic(Stack* s) {
   for (int i=0; i<stacklen(s); i++) {
     Type* t = get(s, i);
-    if (t->kind != TYPE_SINGLE) return true;
+    if (is_polytype(t)) return true;
   }
   return false;
 }
@@ -448,6 +467,20 @@ bool imm_pop_type(Type* l) {
   if (!eqtype(l, sl)) error("unmatch %s type to %s", sl->name, l->name);
   return false;
 }
+
+void replace_typeref(Type* t, Type* r) {
+  if (t->id == r->id) return;
+  if (t->kind == TYPE_REF && t->ref->kind == TYPE_REF) {
+    t->name = r->name;
+    t->id = r->id;
+    replace_typeref(t->ref, r);
+    return;
+  }
+  t->name = r->name;
+  t->id = r->id;
+  t->ref = r;
+}
+
 bool global_pop_type(Type* l) {
   if (state) {
     if (stacklen(comp_typeout) == 0) {
@@ -458,8 +491,8 @@ bool global_pop_type(Type* l) {
     // consume current stack type.
     Type* sl = pop(comp_typeout);
     if (!eqtype(l, sl)) error("unmatch %s type to %s", sl->name, l->name);
-    if (l->kind == TYPE_PARAM) *l = *sl;
-    if (sl->kind == TYPE_PARAM) *sl = *l;
+    if (is_polytype(l)) replace_typeref(l, sl);
+    if (is_polytype(sl)) replace_typeref(sl, l);
     return false;
   } else {
     return imm_pop_type(l);
@@ -491,7 +524,7 @@ bool eq_in(Stack* a, Stack* in) {
   for (int i=0; i<stacklen(in); i++) {
     Type* l = get(a, stacklen(a)-i-1);
     Type* r = get(in, i);
-    if (l->id == r->id) return true;
+    if (eqtype(l, r)) return true;
   }
   return false;
 }
@@ -697,7 +730,7 @@ void word_newtype() {
 
 void word_paramtype_in() {
   char* name = (char*)pop_x();
-  push_x((size_t)init_paramtype(name, typeid++));
+  push_x((size_t)init_paramtype_ref(name, typeid++));
 }
 
 void word_paramtype() {

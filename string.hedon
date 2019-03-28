@@ -19,18 +19,21 @@ rem d s n
 : String.len cell p+ ; ![ String -- Pointer ]
 : String.data cell cell + p+ ; ![ String -- Cstr ]
 : String.dup Int.dup ; ![ String -- String String ] impl dup
+: String.drop Int.drop ; ![ String -- ] impl drop
 : String.swap Int.swap ; ![ String String -- String String ] impl swap
 
 : length String.len @ ;
 : String.need-extend [ length + ] keep String.cap @ le not ;
 : String.2cap dup String.cap @ dup + swap String.cap ! ;
-: String.extend-cap [ 2dup String.need-extend ] [ dup String.2cap ] while ;
-: String.realloc [ string-to-pointer ] keep String.cap @ String.head-size + realloc pointer-to-string ;
-: String.extend dup String.extend-cap String.realloc ;
-: String.extend-if-need 2dup String.need-extend [ drop String.extend ] when drop drop ;
+: String.extend-cap [ 2dup String.need-extend ] [ dup String.2cap ] while drop drop ;
+: String.realloc [ string-to-pointer ] keep String.cap @ String.head-size + 1 + realloc pointer-to-string ;
+: String.extend [ String.extend-cap ] keep String.realloc ;
+: String.extend-if-need 2dup String.need-extend [ String.extend ] [ swap drop ] if ;
 
-: new-string String.head-size + 1 + alloc pointer-to-string ;
-: string dup strlen new-string [ String.data swap strcpy ] keep ;
+: alloc-string String.head-size + 1 + alloc pointer-to-string ;
+: new-string dup alloc-string [ String.cap ! ] keep [ String.len 0 swap ! ] keep ;
+: length-cstr [ strlen ] keep ;
+: string length-cstr dup strlen new-string [ String.data swap strcpy ] keep [ String.len ! ] keep ;
 : .ss String.data .s ;
 
 : copy-and-seek Cstr.dup strlen [ [ strcpy ] 2keep Cstr.drop ] dip s+ ;
@@ -38,3 +41,10 @@ rem d s n
 : alloc-2string 2length new-string ;
 : 2copy-string swap copy-and-seek swap copy-and-seek drop ;
 : concat swap 2dup alloc-2string [ String.data [ [ String.data ] bi@ ] dip 2copy-string ] keep ;
+
+: String.tail [ String.data ] [ length ] bi s+ ;
+: add-length String.len +! ;
+: appendc [ length-cstr ] dip [ dup strlen ] dip String.extend-if-need [ String.tail swap strcpy ] keep [ add-length ] keep ;
+
+rem dump-type String.need-extend cr
+rem dump-type String.extend-if-need cr
