@@ -115,7 +115,7 @@ error_filetest "examples/linear.hedon" "error in write-file-illegal: unmatch l.F
 # macro
 runtest ": main 4 5 2dup . . . . ; main" "5454"
 runtest ": main swap Int.drop Cstr.drop ; dump-type main" "Int Cstr -- "
-runtest ": main 2dup Int.drop Cstr.drop ; dump-type main" "Cstr Int -- b Int"
+runtest ": main 2dup Int.drop Cstr.drop ; dump-type main" "Cstr Int -- Cstr Int"
 runtest ": main 5 0 [ 2dup gr ] [ dup . 1+ ] while ; main" "01234"
 runtest ": main 5 [ dup . ] do ; main" "01234"
 # runtest "array K 5 , 4 , 5 , : main 0 K array@ . 1 K array@ . 2 K array@ . ; main" "545"

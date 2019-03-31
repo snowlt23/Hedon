@@ -156,7 +156,7 @@ Stack* imm_typein;
 Stack* imm_typeout;
 Stack* comp_typein;
 Stack* comp_typeout;
-size_t typeid;
+size_t typeidcnt;
 Type* quott;
 Type* typet;
 Type* intt;
@@ -277,7 +277,7 @@ Type* dup_type(Type* t) {
 }
 
 Type* generate_type(char* name) {
-  return new_type(name, typeid++);
+  return new_type(name, typeidcnt++);
 }
 
 Type* init_paramtype(char* name, size_t id) {
@@ -297,8 +297,18 @@ Type* init_paramtype_ref(char* name, size_t id) {
   return init_reftype(init_paramtype(name, id));
 }
 
+int typeid(Type* t) {
+  if (t->kind == TYPE_REF) return typeid(t->ref);
+  return t->id;
+}
+
+char* typename(Type* t) {
+  if (t->kind == TYPE_REF) return typename(t->ref);
+  return t->name;
+}
+
 bool eqtype(Type* a, Type* b) {
-  if (a->id == b->id) return true;
+  if (typeid(a) == typeid(b)) return true;
   if (a->kind == TYPE_PARAM) return true;
   if (b->kind == TYPE_PARAM) return true;
   if (a->kind == TYPE_REF) return eqtype(a->ref, b);
@@ -461,23 +471,19 @@ void global_push_type(Type* l) {
 bool imm_pop_type(Type* l) {
   if (stacklen(imm_typeout) == 0) {
     // if stack is empty at global state
-    error("stack is empty, but expected %s value", l->name);
+    error("stack is empty, but expected %s value", typename(l));
   }
   Type* sl = pop(imm_typeout);
-  if (!eqtype(l, sl)) error("unmatch %s type to %s", sl->name, l->name);
+  if (!eqtype(l, sl)) error("unmatch %s type to %s", typename(sl), typename(l));
   return false;
 }
 
 void replace_typeref(Type* t, Type* r) {
-  if (t->id == r->id) return;
   if (t->kind == TYPE_REF && t->ref->kind == TYPE_REF) {
-    t->name = r->name;
-    t->id = r->id;
     replace_typeref(t->ref, r);
     return;
   }
-  t->name = r->name;
-  t->id = r->id;
+  if (typeid(t) == typeid(r)) return;
   t->ref = r;
 }
 
@@ -490,7 +496,7 @@ bool global_pop_type(Type* l) {
     }
     // consume current stack type.
     Type* sl = pop(comp_typeout);
-    if (!eqtype(l, sl)) error("unmatch %s type to %s", sl->name, l->name);
+    if (!eqtype(l, sl)) error("unmatch %s type to %s", typename(sl), typename(l));
     if (is_polytype(l)) replace_typeref(l, sl);
     if (is_polytype(sl)) replace_typeref(sl, l);
     return false;
@@ -713,7 +719,7 @@ void word_def() {
 }
 
 void word_typeid() {
-  write_x(typeid++);
+  write_x(typeidcnt++);
 }
 
 void word_gentype() {
@@ -724,13 +730,13 @@ void word_gentype() {
 
 void word_newtype() {
   char* name = last_def()->name;
-  size_t id = typeid++;
+  size_t id = typeidcnt++;
   write_x((size_t)new_type(name, id));
 }
 
 void word_paramtype_in() {
   char* name = (char*)pop_x();
-  push_x((size_t)init_paramtype_ref(name, typeid++));
+  push_x((size_t)init_paramtype_ref(name, typeidcnt++));
 }
 
 void word_paramtype() {
@@ -878,10 +884,10 @@ void word_force_effects() {
 
 void dump_typestack(FILE* f, Stack* s) {
   Type* tfirst = get(s, 0);
-  if (stacklen(s) != 0) fprintf(f, "%s", tfirst->name);
+  if (stacklen(s) != 0) fprintf(f, "%s", typename(tfirst));
   for (int i=1; i<stacklen(s); i++) {
     Type* t = get(s, i);
-    fprintf(f, " %s", t->name);
+    fprintf(f, " %s", typename(t));
   }
 }
 
@@ -1331,7 +1337,7 @@ void startup(size_t buffersize, size_t dpsize, size_t cpsize, size_t datasize) {
   imm_typeout = new_stack();
   comp_typein = new_stack();
   comp_typeout = new_stack();
-  typeid = 0;
+  typeidcnt = 0;
   quott = generate_type("Quot");
   typet = generate_type("Type");
   intt = generate_type("Int");
