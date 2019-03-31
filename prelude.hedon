@@ -129,6 +129,7 @@
 : shr >rcx >rax [ 0x48 0xd3 0xe8 ] X rax> ;
 : @ >rax [ 0x48 0x8b 0x00 ] X rax> ; ![ Pointer -- Int ]
 : u32@ >rax [ 0x8b 0x00 ] X rax> ; ![ Pointer -- Int ]
+: u32! >rax >rcx [ 0x89 0x08 ] X ; ![ Int Pointer -- ]
 : ! >rax >rcx [ 0x48 0x89 0x08 ] X ; ![ Int Pointer -- ]
 : p@ @ ; ![ Pointer -- Pointer ]
 : p! ! ; ![ Pointer Pointer -- ]
@@ -136,7 +137,7 @@
 : u8@ >rax [ 0x8a 0x00 0x48 0x0f 0xb6 0xc0 ] X rax> ; ![ Pointer -- Int ]
 : u8! >rax >rcx [ 0x88 0x08 ] X ; ![ Int Pointer -- ]
 : c@ >rax [ 0x8a 0x00 0x48 0x0f 0xb6 0xc0 ] X rax> ; ![ Cstr -- Int ]
-: c! >rax >rcx [ 0x88 0x08 ] X ; ![ Int Pointer -- ]
+: c! >rax >rcx [ 0x88 0x08 ] X ; ![ Int Cstr -- ]
 : Int.pick3.eff
   b dup eff.drop
   a dup eff.drop

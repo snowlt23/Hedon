@@ -1,24 +1,24 @@
-var sdl.shared ![ -- Pointer ]
-var sdl.get-error.ptr ![ -- Pointer ]
-var sdl.init.ptr ![ -- Pointer ]
-var sdl.poll-event.ptr ![ -- Pointer ]
-var sdl.quit.ptr ![ -- Pointer ]
-var sdl.create-window.ptr ![ -- Pointer ]
-var sdl.destroy-window.ptr ![ -- Pointer ]
-var sdl.create-renderer.ptr ![ -- Pointer ]
-var sdl.create-texture-from-surface.ptr ![ -- Pointer ]
-var sdl.destroy-texture.ptr ![ -- Pointer ]
-var sdl.render-copy.ptr ![ -- Pointer ]
-var sdl.render-present.ptr ![ -- Pointer ]
-var sdl.load-bmp-rw.ptr ![ -- Pointer ]
-var sdl.rw-from-file.ptr ![ -- Pointer ]
-var sdl.free-surface.ptr ![ -- Pointer ]
-var sdl.blit-surface.ptr ![ -- Pointer ]
-var sdl.get-window-surface.ptr ![ -- Pointer ]
+var sdl.shared
+var sdl.get-error.ptr
+var sdl.init.ptr
+var sdl.poll-event.ptr
+var sdl.quit.ptr
+var sdl.create-window.ptr
+var sdl.destroy-window.ptr
+var sdl.create-renderer.ptr
+var sdl.create-texture-from-surface.ptr
+var sdl.destroy-texture.ptr
+var sdl.render-copy.ptr
+var sdl.render-present.ptr
+var sdl.load-bmp-rw.ptr
+var sdl.rw-from-file.ptr
+var sdl.free-surface.ptr
+var sdl.blit-surface.ptr
+var sdl.get-window-surface.ptr
 
-var loader ![ -- Pointer ]
-var load.var ![ -- Pointer ]
-var loadtype.var ![ -- Pointer ]
+var loader
+var load.var
+var loadtype.var
 : loader@ loader @ ; ![ -- Quot ]
 : loader! loader ! ; ![ Quot -- ]
 : load@ load.var @ ; ![ -- Token ]
@@ -133,12 +133,12 @@ rem : sdl.windowpos-undefined 0x1fff0000 ;
 
 rem ------ examples ------
 
-var window.ptr ![ -- Pointer ]
+var window.ptr
 : window@ window.ptr @ ; ![ -- sdl.Window ]
 : window@.unsafe window.ptr @ ; ![ -- sdl.WindowU ]
 : window! window.ptr ! ; ![ sdl.WindowU -- ]
 : window.drop window@.unsafe sdl.destroy-window.unsafe ;
-var renderer.ptr ![ -- Pointer ]
+var renderer.ptr
 : renderer@ renderer.ptr @ ; ![ -- sdl.Renderer ]
 : renderer! renderer.ptr ! ; ![ sdl.RendererU -- ]
 
