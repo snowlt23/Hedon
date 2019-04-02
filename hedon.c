@@ -151,6 +151,8 @@ bool state;
 bool codegenstate;
 Stack* globaldefs;
 Token* intoken;
+Stack* inquot;
+int quotpos;
 
 Stack* imm_typein;
 Stack* imm_typeout;
@@ -949,8 +951,12 @@ void word_rem() {
 }
 
 void word_parse_token() {
-  if (state) error("parse-token can only toplevel in currently");
-  push_x((size_t)parse_token());
+  if (quotpos != -1) {
+    push_x((size_t)get(inquot, quotpos++));
+  } else {
+    // toplevel parse
+    push_x((size_t)parse_token());
+  }
 }
 
 void word_create_def() {
@@ -1163,10 +1169,15 @@ void codegen_quot(Stack* s) {
 }
 
 void eval_quot(Stack* s) {
-  for (int i=0; i<stacklen(s); i++) {
-    Token* t = get(s, i);
+  Stack* tmpinquot = inquot;
+  int tmpquotpos = quotpos;
+  inquot = s;
+  for (quotpos=0; quotpos<stacklen(inquot); quotpos++) {
+    Token* t = get(inquot, quotpos);
     eval_token(t);
   }
+  quotpos = tmpquotpos;
+  inquot = tmpinquot;
 }
 
 void eval_token(Token* token) {
@@ -1330,6 +1341,7 @@ void startup(size_t buffersize, size_t dpsize, size_t cpsize, size_t datasize) {
   data = new_stack_cap(datasize);
   state = false;
   codegenstate = true;
+  quotpos = -1;
 
   globaldefs = new_stack_cap(sizeof(Def*)*4096);
 
