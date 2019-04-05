@@ -15,6 +15,8 @@
 - ] end-quot
 - : begin-def
 - ; end-def
+- > to
+- . print
 
 **Not used**
 - \# $ % & ' ( ) = ^ ~ \ | ` { } * < > , . ? / _

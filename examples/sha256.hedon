@@ -17,30 +17,30 @@ array sha256.init-hash ![ -- Pointer ]
 : rotr-r 32 swap - shl ;
 : rotr [ rotr-l ] 2keep rotr-r bor ;
 
+: bicar Quot.swap [ keep swap dip swap ] postcompile ; immediate
 : bicar@ Quot.dup [ keep swap dip swap ] postcompile ; immediate
 rem z y x
-: ch [ band ] bicar@ xor ;
+: ch [ band ] [ bnot band ] bicar xor ;
 : maj
   [ 2dup band ] dip
   [ band ] bicar@
   xor xor
 ;
 
-: keep-rotr [ rotr ] keep ;
-: bgsigma-base keep-rotr keep-rotr keep-rotr drop xor xor ;
-: smsigma-base [ shr ] keep keep-rotr keep-rotr drop xor xor ;
-: bgsigma0 2 13 22 bgsigma-base ;
-: bgsigma1 6 11 25 bgsigma-base ;
-: smsigma0 7 18 3 smsigma-base ;
-: smsigma1 17 19 10 smsigma-base ;
+: keep-rotr swap [ swap rotr ] keep ;
+: tosigma xor xor u64-to-u32 ;
+: bgsigma0 2  keep-rotr 13 keep-rotr 22 keep-rotr drop tosigma ;
+: bgsigma1 6  keep-rotr 11 keep-rotr 25 keep-rotr drop tosigma ;
+: smsigma0 7  keep-rotr 18 keep-rotr 3  shr tosigma ;
+: smsigma1 17 keep-rotr 19 keep-rotr 10 shr tosigma ;
 
-: take-and-push-byte swap [ shr 0xff band swap push-char ] keep ;
+: take-and-push-byte [ shr 0xff band swap push-char ] 2keep drop ;
 : push-int32
   24 take-and-push-byte
   16 take-and-push-byte
   8 take-and-push-byte
   0 take-and-push-byte
-  drop drop
+  drop
 ;
 : push-int64
   56 take-and-push-byte
@@ -51,20 +51,21 @@ rem z y x
   16 take-and-push-byte
   8 take-and-push-byte
   0 take-and-push-byte
-  drop drop
+  drop
 ;
 
 rem s
-: need-extend length 54 le not ;
+: need-extend length 64 mod 55 gr ;
 : needed-size 64 mod 64 swap - ;
 : extend-input-by-n [ [ nullchar swap push-char ] 2dip ] do drop drop ; rem s n
 : extend-to-nextblock dup length needed-size extend-input-by-n ;
 : push-x80 0x80 swap push-char ;
 : extend-to-56 dup length needed-size 8 - extend-input-by-n ;
-: push-length dup length push-int64 ;
+: push-length swap 8 mul push-int64 ;
 : padding
+  [ length ] keep
   dup need-extend [ extend-to-nextblock ] when
-  dup push-x80 extend-to-56 push-length
+  push-x80 extend-to-56 push-length
 ;
 
 : pull4byte
@@ -76,24 +77,25 @@ rem s
 ;
 : to-32bit 24 shl [ 16 shl ] dip + [ 8 shl ] dip + + ;
 : pull32bit pull4byte to-32bit ;
-: pull-and-push32 pull32bit push-int32 ;
+: pull-and-push32 pull32bit push-int32 ; rem [ d s -- d ]
 
 : alloc-blk256 256 new-string ;
 : le64 64 le ;
 : recalc-1blk
-  [ 2 - 4 mul pull32bit ] 2keep
+  swap
+  [ 2 - 4 mul pull32bit smsigma1 ] 2keep
   [ 7 - 4 mul pull32bit ] 2keep
-  [ 15 - 4 mul pull32bit ] 2keep
+  [ 15 - 4 mul pull32bit smsigma0 ] 2keep
   [ 16 - 4 mul pull32bit ] 2keep
   drop drop
   + + +
 ;
 : recalc-blk256
-  dup 17 [ dup le64 ] [ [ swap dup [ swap recalc-1blk ] dip swap push-int32 ] 2keep 1 + ] while drop drop
+  16 [ dup le64 ] [ [ swap [ recalc-1blk ] [ swap push-int32 ] bi ] 2keep 1 + ] while drop drop
 ;
 : blk64-to-blk256
-  alloc-blk256
-  0 [ dup le64 ] [ [ swap [ swap pull-and-push32 ] keep ] 2keep 4 + ] while drop drop
+  alloc-blk256 swap
+  0 [ dup le64 ] [ [ pull-and-push32 ] 2keep 4 + ] while drop drop
   recalc-blk256
 ;
 
@@ -129,7 +131,7 @@ var h ![ -- Pointer ]
   7 sha256.init-hash array@ h !
 ;
 : compute-rotation
-  64 [ [ swap drop swap [ swap rotate-alphabet ] keep ] 2keep ] do drop drop drop
+  64 [ [ 1 + [ rotate-alphabet ] 2keep ] 2dip ] do drop drop drop drop
 ;
 : pull-computed-hash
   32 new-string
@@ -142,22 +144,43 @@ var h ![ -- Pointer ]
   [ g @ push-int32 ] keep
   [ h @ push-int32 ] keep
 ;
-: compute-hash init-alphabet compute-rotation pull-computed-hash ;
+: compute-hash
+  init-alphabet
+  0 [ [ dup length ] dip swap 2dup le swap drop ] [ [ compute-rotation ] 2keep 256 + ] while drop drop
+  pull-computed-hash
+;
 
-: sha256.compute blk64-to-blk256 compute-hash ;
+: sha256.compute padding blk64-to-blk256 compute-hash ;
 
 : take-hexr 0x0f band ;
-: take-hexl 4 shl 0x0f band ;
-: itoc dup 9 gr [ 65 + ] [ 48 + ] if ;
+: take-hexl 4 shr 0x0f band ;
+: itoc dup 9 gr [ 10 - 97 + ] [ 48 + ] if ;
 : alloc-hexstring 64 new-string ;
 : take-and-push-hexbyte
   swap [ swap string@ [ take-hexr itoc ] [ take-hexl itoc ] bi ] dip push-char push-char
 ; rem [ sha256string hexstring i -- hexstring ]
+: to-hexstring
+  [ [ [ dup ] 3dip swap drop take-and-push-hexbyte ] 2keep ] do drop drop swap drop
+;
+: padding-to-hexstring
+  128 new-string 64 to-hexstring
+;
 : sha256-to-hexstring
-  alloc-hexstring
-  32 [ [ [ dup ] 3dip swap drop take-and-push-hexbyte ] 2keep ] do drop drop swap drop
+  alloc-hexstring 32 to-hexstring
 ;
 
+: padding-check
+  1000 new-string
+  0x00 swap push-char 0x00 swap push-char 0x11 swap push-char 0x11 swap push-char 0x22 swap push-char 0x22 swap push-char 0x33 swap push-char 0x33 swap push-char 0x44 swap push-char 0x44 swap push-char 0x55 swap push-char 0x55 swap push-char 0x66 swap push-char 0x66 swap push-char 0x77 swap push-char 0x77 swap push-char 0x88 swap push-char 0x88 swap push-char 0x99 swap push-char 0x99 swap push-char 0xaa swap push-char 0xaa swap push-char 0xbb swap push-char 0xbb swap push-char 0xcc swap push-char 0xcc swap push-char 0xdd swap push-char 0xdd swap push-char 0xee swap push-char 0xee swap push-char 0xff swap push-char 0xff swap push-char
+0x00 swap push-char 0x11 swap push-char 0x22 swap push-char 0x33 swap push-char 0x44 swap push-char 0x55 swap push-char 0x66 swap push-char 0x77 swap push-char
+  padding dup length . cr padding-to-hexstring .ss cr
+;
+padding-check
+
 : main
-  "aaaaa" string sha256.compute sha256-to-hexstring .ss cr
+  rem 100 new-string 0xff push-int32 sha256-to-hexstring .ss cr
+  "a" dup .s " " .s string padding padding-to-hexstring .ss cr
+  "a" dup .s " " .s string sha256.compute sha256-to-hexstring .ss cr
+  "abc" dup .s " " .s string sha256.compute sha256-to-hexstring .ss cr
+  "aaaaa" dup .s " " .s string sha256.compute sha256-to-hexstring .ss cr
 ; main
