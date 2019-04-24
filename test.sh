@@ -121,6 +121,8 @@ runtest ": main 5 [ dup . ] do ; main" "01234"
 # runtest "array K 5 , 4 , 5 , : main 0 K array@ . 1 K array@ . 2 K array@ . ; main" "545"
 runtest ": run-test \"aaa\" [ 1 1 eq ] test ; run-test 9 ." "9"
 runtest ": run-test \"0eq1\" [ 0 1 eq ] test ; run-test 9 ." "[ERROR] 0eq1"
+runtest "dump-type to-pointer" "Fixnum -- Pointer"
+runtest ": 555p 555 to-pointer ; : main 555p to-int . ; dump-type 555p main" " -- Pointer555" # cast
 
 # cffi
 runtest ": main 9 test.call1 c.call1 . ; main" "9"

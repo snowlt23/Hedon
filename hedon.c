@@ -106,6 +106,7 @@ typedef struct {
 typedef enum {
   TYPE_SINGLE,
   TYPE_PARAM,
+  TYPE_UNION,
   TYPE_REF,
 } TypeKind;
 typedef struct _Type {
@@ -113,6 +114,7 @@ typedef struct _Type {
   char* name;
   size_t id;
   struct _Type* ref;
+  Stack* types;
 } Type;
 
 typedef enum {
@@ -269,6 +271,7 @@ Type* new_type(char* name, size_t id) {
   t->name = name;
   t->id = id;
   t->ref = NULL;
+  t->types = NULL;
   return t;
 }
 
@@ -285,6 +288,13 @@ Type* generate_type(char* name) {
 Type* init_paramtype(char* name, size_t id) {
   Type* t = new_type(name, id);
   t->kind = TYPE_PARAM;
+  return t;
+}
+
+Type* init_uniontype(char* name, size_t id) {
+  Type* t = new_type(name, id);
+  t->kind = TYPE_UNION;
+  t->types = new_stack();
   return t;
 }
 
@@ -315,6 +325,16 @@ bool eqtype(Type* a, Type* b) {
   if (b->kind == TYPE_PARAM) return true;
   if (a->kind == TYPE_REF) return eqtype(a->ref, b);
   if (b->kind == TYPE_REF) return eqtype(a, b->ref);
+  if (a->kind == TYPE_UNION) {
+    for (int i=0; i<stacklen(a->types); i++) {
+      if (eqtype(get(a->types, i), b)) return true;
+    }
+  }
+  if (b->kind == TYPE_UNION) {
+    for (int i=0; i<stacklen(b->types); i++) {
+      if (eqtype(a, get(b->types, i))) return true;
+    }
+  }
   return false;
 }
 
@@ -342,10 +362,23 @@ bool is_polytype(Type* t) {
   return t->kind != TYPE_SINGLE;
 }
 
+bool is_in_polytype(Type* t) {
+  if (t->kind == TYPE_REF) return is_polytype(t->ref);
+  return t->kind != TYPE_SINGLE && t->kind != TYPE_UNION;
+}
+
 bool is_polymorphic(Stack* s) {
   for (int i=0; i<stacklen(s); i++) {
     Type* t = get(s, i);
     if (is_polytype(t)) return true;
+  }
+  return false;
+}
+
+bool is_in_polymorphic(Stack* s) {
+  for (int i=0; i<stacklen(s); i++) {
+    Type* t = get(s, i);
+    if (is_in_polytype(t)) return true;
   }
   return false;
 }
@@ -703,7 +736,7 @@ void word_def() {
   typing_quot(def->quot->quot);
   def->freezein = freeze(comp_typein);
   def->freezeout = freeze(comp_typeout);
-  def->polymorphic = is_polymorphic(comp_typein) || is_polymorphic(comp_typeout);
+  def->polymorphic = is_in_polymorphic(comp_typein) || is_polymorphic(comp_typeout);
   // store inferred typestack for write
   comp_typeout = rev_stack(comp_typein);
   comp_typein = new_stack();
@@ -746,6 +779,19 @@ void word_paramtype() {
   write_x((size_t)name);
   write_call_builtin(word_paramtype_in);
   // write_stack_increment(0);
+}
+
+void word_uniontype() {
+  char* name = last_def()->name;
+  size_t id = typeidcnt++;
+  write_x((size_t)init_uniontype(name, id));
+}
+
+void word_is() {
+  Type* ut = (Type*)pop_x();
+  if (ut->types == NULL) error("%s isn't uniontype", ut->name);
+  Type* t = (Type*)pop_x();
+  push(ut->types, t);
 }
 
 void word_eff_push() {
@@ -879,7 +925,7 @@ void word_force_effects() {
   apply_effects(def);
   def->freezein = freeze(comp_typein);
   def->freezeout = freeze(comp_typeout);
-  def->polymorphic = is_polymorphic(comp_typein) || is_polymorphic(comp_typeout);
+  def->polymorphic = is_in_polymorphic(comp_typein) || is_polymorphic(comp_typeout);
   state = false;
   restore_globaltype;
 }
@@ -952,7 +998,7 @@ void word_rem() {
 
 void word_parse_token() {
   if (quotpos != -1) {
-    push_x((size_t)get(inquot, quotpos++));
+    push_x((size_t)get(inquot, ++quotpos));
   } else {
     // toplevel parse
     push_x((size_t)parse_token());
@@ -973,25 +1019,37 @@ void word_create_def() {
   state = tmpstate;
 }
 
-void word_create_eff() {
-  Def* def = last_def();
-  def->freezein = NULL;
-  def->freezeout = NULL;
-  def->effects = new_stack();
-  Token* t = (Token*)pop_x();
-  Def* eff = search_def(t->name);
-  if (eff == NULL) error("undefined %s word", t->name);
-  push(def->effects, new_eff(eff, EFF_IMM));
-}
-
 void word_search_word() {
   char* name = (char*)pop_x();
   push_x((size_t)search_def(name));
 }
 
-void word_word_code() {
+void word_create_eff() {
+  push_x((size_t)new_stack());
+}
+
+void word_add_effin() {
   Def* def = (Def*)pop_x();
-  push_x((size_t)def->wp);
+  Stack* eff = (Stack*)pop_x();
+  push(eff, new_eff(def, EFF_IN));
+  push_x((size_t)eff);
+}
+
+void word_add_effout() {
+  Def* def = (Def*)pop_x();
+  Stack* eff = (Stack*)pop_x();
+  push(eff, new_eff(def, EFF_OUT));
+  push_x((size_t)eff);
+}
+
+void word_as_type() {
+  Def* def = (Def*)pop_x();
+  call_word(def->wp);
+}
+
+void word_token_name() {
+  Token* t = (Token*)pop_x();
+  push_x((size_t)t->name);
 }
 
 void print_quot(Stack* q) {
@@ -1055,6 +1113,14 @@ void word_compile() {
   intoken = tmpintoken;
 }
 
+void word_postcompile() {
+  imm_pop_type(quott);
+  Stack* q = (Stack*)pop_x();
+  write_x((size_t)q);
+  write_call_builtin(word_compile);
+  write_stack_increment(-8);
+}
+
 void word_literal() {
   size_t x = pop_x();
   char buf[256] = {};
@@ -1097,14 +1163,6 @@ void word_postquot() {
   global_push_type(quott);
   Stack* q = (Stack*)pop_x();
   write_x((size_t)q);
-}
-
-void word_postcompile() {
-  imm_pop_type(quott);
-  Stack* q = (Stack*)pop_x();
-  write_x((size_t)q);
-  write_call_builtin(word_compile);
-  write_stack_increment(-8);
 }
 
 void* dlopen_x(char* libname, size_t flag) {
@@ -1271,6 +1329,8 @@ void eval_token(Token* token) {
   BUILTIN_WORD("builtin.Cstr", word_cstr, 8, {});
   BUILTIN_WORD("builtin.newtype", word_newtype, 8, {});
   BUILTIN_WORD("builtin.paramtype", word_paramtype, 8, {});
+  BUILTIN_WORD("builtin.uniontype", word_uniontype, 8, {});
+  BUILTIN_WORD("is", word_is, -16, {IN_EFF("Type", "Type")});
 
   // effect words
   BUILTIN_WORD("builtin.eff.push", word_eff_push, -8, {});
@@ -1285,9 +1345,12 @@ void eval_token(Token* token) {
   // word control
   BUILTIN_WORD("parse-token", word_parse_token, 8, {OUT_EFF("Token")});
   BUILTIN_WORD("create-def", word_create_def, -16, {IN_EFF("Quot", "Token")});
-  BUILTIN_WORD("create-eff", word_create_eff, -8, {IN_EFF("Token")});
-  BUILTIN_WORD("search-word", word_search_word, 0, {IN_EFF("Int"); OUT_EFF("Int")});
-  BUILTIN_WORD("word-code", word_word_code, 0, {IN_EFF("Int"); OUT_EFF("Int")});
+  BUILTIN_WORD("search-word", word_search_word, 0, {IN_EFF("Cstr"); OUT_EFF("Word")});
+  BUILTIN_WORD("<eff>", word_create_eff, 8, {OUT_EFF("Eff")});
+  BUILTIN_WORD(">>eff.in", word_add_effin, -8, {IN_EFF("Eff", "Word"); OUT_EFF("Eff")});
+  BUILTIN_WORD(">>eff.out", word_add_effout, -8, {IN_EFF("Eff", "Word"); OUT_EFF("Eff")});
+  BUILTIN_WORD("as-type", word_as_type, 0, {IN_EFF("Word"); OUT_EFF("Type")});
+  BUILTIN_WORD("token-name", word_token_name, 0, {IN_EFF("Token"); OUT_EFF("Cstr")});
 
   BUILTIN_WORD("builtin.dp", word_dp, 8, {OUT_EFF("Int")});
   BUILTIN_WORD("builtin.cp", word_cp, 8, {OUT_EFF("Int")});

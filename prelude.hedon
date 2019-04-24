@@ -5,17 +5,27 @@
 : eff.dup builtin.eff.dup ; ![ Type -- ]
 : newtype builtin.newtype Type eff.push ; immediate
 : paramtype builtin.paramtype Type eff.push ; immediate
+: uniontype builtin.uniontype Type eff.push ; immediate
 : a paramtype ;
 : b paramtype ;
 : c paramtype ;
 
 : Quot builtin.Quot ; ![ -- Type ]
 : Token newtype ;
+: Word newtype ;
 : Int builtin.Int ; ![ -- Type ]
 : Cstr builtin.Cstr ; ![ -- Type ]
 : Bool newtype ;
 : Pointer newtype ;
 : EffSave newtype ;
+: Eff newtype ;
+
+: Fixnum uniontype ;
+Int Fixnum is
+Cstr Fixnum is
+Bool Fixnum is
+Pointer Fixnum is
+Type Fixnum is
 
 : eff.save-out builtin.eff.save-out ; ![ -- EffSave ]
 : eff.load-out builtin.eff.load-out ; ![ EffSave -- ]
@@ -40,9 +50,9 @@
 : dup trait ; eff.attach dup.eff
 
 : grow [ 0x48 0x83 0xeb 0x08 ] X ; ![ -- Int ]
+: Fixnum.drop [ 0x48 0x83 0xc3 0x08 ] X ; ![ Fixnum ] impl drop
 : Int.drop [ 0x48 0x83 0xc3 0x08 ] X ; ![ Int ] impl drop
 : Cstr.drop Int.drop ; ![ Cstr ] impl drop
-: Bool.drop Int.drop ; ![ Bool ] impl drop
 : Pointer.drop Int.drop ; ![ Pointer ] impl drop
 : Type.drop [ 0x48 0x83 0xc3 0x08 ] X ; ![ Type ] impl drop
 : >rax [ 0x48 0x8b 0x03 ] X Int.drop ;

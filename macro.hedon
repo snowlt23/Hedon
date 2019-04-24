@@ -22,5 +22,8 @@ rem n "name"
 : array! swap array-addr-by-index ! ;
 : Int.allot cell mul allot ;
 
+: cast> Fixnum eff.drop parse-token token-name search-word as-type eff.push ; immediate
+: to-pointer cast> Pointer ;
+
 : test-check [ drop ] [ "[ERROR] " .s .s 1 exit ] if ;
 : test compile [ test-check ] postcompile ; immediate
