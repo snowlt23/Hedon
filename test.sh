@@ -131,6 +131,7 @@ runtest ": main 1 2 3 4 5 6 test.call6 c.call6 . ; main" "-19"
 
 # string
 runtest ": main \"yukarin\" strlen . ; main" "7"
+runtest "dump-type String.lent" "StringU -- StringU String"
 runtest ": main 7 new-cstr [ \"yukarin\" strcpy ] keep .s ; main" "yukarin"
 runtest ": main \"yuka\" string \"maki\" string concat .ss ; main" "yukamaki"
 runtest ": main \"kiri\" \"kizu\" \"aka\" \"maki\" \"yuka\" string appendc appendc appendc appendc ; main .ss" "yukamakiakakizukiri"

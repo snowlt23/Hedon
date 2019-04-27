@@ -899,6 +899,17 @@ void word_eff_postattach() {
   write_stack_increment(-8);
 }
 
+void word_freeze_eff(Def* def) {
+  spill_globaltype;
+  state = true;
+  apply_effects(def);
+  def->freezein = freeze(comp_typein);
+  def->freezeout = freeze(comp_typeout);
+  def->polymorphic = is_in_polymorphic(comp_typein) || is_polymorphic(comp_typeout);
+  state = false;
+  restore_globaltype;
+}
+
 void word_force_effects() {
   Def* def = last_def();
   def->freezein = NULL;
@@ -920,14 +931,7 @@ void word_force_effects() {
   }
   if (inout == EFF_IN) def->effects = rev_stack(def->effects);
 
-  spill_globaltype;
-  state = true;
-  apply_effects(def);
-  def->freezein = freeze(comp_typein);
-  def->freezeout = freeze(comp_typeout);
-  def->polymorphic = is_in_polymorphic(comp_typein) || is_polymorphic(comp_typeout);
-  state = false;
-  restore_globaltype;
+  word_freeze_eff(def);
 }
 
 void dump_typestack(FILE* f, Stack* s) {
@@ -1022,6 +1026,53 @@ void word_create_def() {
 void word_search_word() {
   char* name = (char*)pop_x();
   push_x((size_t)search_def(name));
+}
+
+void word_create_word() {
+  char* n = (char*)pop_x();
+  Def* def = new_def();
+  strcpy(def->name, n);
+  def->polymorphic = true;
+  def->wp = cp;
+  bool tmpstate = state;
+  state = true;
+  write_hex(0xc3); // ret
+  state = tmpstate;
+  push_x((size_t)def);
+}
+
+void word_set_code() {
+  Stack* q = (Stack*)pop_x();
+  Def* def = (Def*)pop_x();
+  def->wp = cp;
+  bool tmpstate = state;
+  state = true;
+  eval_quot(q);
+  write_hex(0xc3); // ret
+  state = tmpstate;
+  push_x((size_t)def);
+}
+
+void word_add_impl() {
+  char* to = (char*)pop_x();
+  Def* def = (Def*)pop_x();
+  Def* trait = search_def(to);
+  if (trait == NULL) error("undefined %s word in >>impl", to);
+  push(trait->traitwords, def);
+  push_x((size_t)def);
+}
+
+void word_set_eff() {
+  Stack* eff = (Stack*)pop_x();
+  Def* def = (Def*)pop_x();
+  def->effects = eff;
+  word_freeze_eff(def);
+  push_x((size_t)def);
+}
+
+void word_add_to_vocab() {
+  Def* def = (Def*)pop_x();
+  push(globaldefs, def);
 }
 
 void word_create_eff() {
@@ -1344,13 +1395,20 @@ void eval_token(Token* token) {
 
   // word control
   BUILTIN_WORD("parse-token", word_parse_token, 8, {OUT_EFF("Token")});
+  BUILTIN_WORD("token-name", word_token_name, 0, {IN_EFF("Token"); OUT_EFF("Cstr")});
+
   BUILTIN_WORD("create-def", word_create_def, -16, {IN_EFF("Quot", "Token")});
   BUILTIN_WORD("search-word", word_search_word, 0, {IN_EFF("Cstr"); OUT_EFF("Word")});
+  BUILTIN_WORD("<word>", word_create_word, 0, {IN_EFF("Cstr"); OUT_EFF("Word")});
+  BUILTIN_WORD(">>code", word_set_code, -8, {IN_EFF("Word", "Quot"); OUT_EFF("Word")});
+  BUILTIN_WORD(">>impl", word_add_impl, -8, {IN_EFF("Word", "Cstr"); OUT_EFF("Word")});
+  BUILTIN_WORD(">>eff", word_set_eff, -8, {IN_EFF("Word", "Eff"); OUT_EFF("Word")});
+  BUILTIN_WORD(">vocab", word_add_to_vocab, -8, {IN_EFF("Word")});
+  BUILTIN_WORD("as-type", word_as_type, 0, {IN_EFF("Word"); OUT_EFF("Type")});
+
   BUILTIN_WORD("<eff>", word_create_eff, 8, {OUT_EFF("Eff")});
   BUILTIN_WORD(">>eff.in", word_add_effin, -8, {IN_EFF("Eff", "Word"); OUT_EFF("Eff")});
   BUILTIN_WORD(">>eff.out", word_add_effout, -8, {IN_EFF("Eff", "Word"); OUT_EFF("Eff")});
-  BUILTIN_WORD("as-type", word_as_type, 0, {IN_EFF("Word"); OUT_EFF("Type")});
-  BUILTIN_WORD("token-name", word_token_name, 0, {IN_EFF("Token"); OUT_EFF("Cstr")});
 
   BUILTIN_WORD("builtin.dp", word_dp, 8, {OUT_EFF("Int")});
   BUILTIN_WORD("builtin.cp", word_cp, 8, {OUT_EFF("Int")});

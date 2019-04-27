@@ -11,7 +11,9 @@ rem d s n
 : strcpy dup strlen 1+ strcpyn ;
 : new-cstr 1+ c.malloc pointer-to-cstr ;
 
+: StringU newtype ;
 : String newtype ;
+lentable String.lent StringU String
 : pointer-to-string ; ![ Pointer -- String ]
 : string-to-pointer ; ![ String -- Pointer ]
 : String.head-size cell cell + ;

@@ -27,3 +27,16 @@ rem n "name"
 
 : test-check [ drop ] [ "[ERROR] " .s .s 1 exit ] if ;
 : test compile [ test-check ] postcompile ; immediate
+
+: parse-name parse-token token-name ;
+: parse-word parse-name search-word ;
+: parse-type parse-word as-type ;
+
+rem ( lentable "word-name" "UniqueT" "LentT" -- )
+: lentable
+  parse-name <word>
+    [ Fixnum.drop ] postquot >>code
+    <eff> parse-word [ >>eff.in ] keep >>eff.out parse-word >>eff.out >>eff
+    "lent" >>impl
+  >vocab
+;
