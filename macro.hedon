@@ -25,8 +25,7 @@ rem n "name"
 : cast> Fixnum eff.drop parse-token token-name search-word as-type eff.push ; immediate
 : to-pointer cast> Pointer ;
 
-: test-check [ drop ] [ "[ERROR] " .s .s 1 exit ] if ;
-: test compile [ test-check ] postcompile ; immediate
+: test [ "[OK] " .s .s cr ] [ "[ERROR] " .s .s cr 1 exit ] if ;
 
 : parse-name parse-token token-name ;
 : parse-word parse-name search-word ;

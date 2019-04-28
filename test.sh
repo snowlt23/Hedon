@@ -119,8 +119,9 @@ runtest ": main 2dup Int.drop Cstr.drop ; dump-type main" "Cstr Int -- Cstr Int"
 runtest ": main 5 0 [ 2dup gr ] [ dup . 1+ ] while ; main" "01234"
 runtest ": main 5 [ dup . ] do ; main" "01234"
 # runtest "array K 5 , 4 , 5 , : main 0 K array@ . 1 K array@ . 2 K array@ . ; main" "545"
-runtest ": run-test \"aaa\" [ 1 1 eq ] test ; run-test 9 ." "9"
-runtest ": run-test \"0eq1\" [ 0 1 eq ] test ; run-test 9 ." "[ERROR] 0eq1"
+runtest ": run-test \"aaa\" 1 1 eq test ; run-test 9 ." "[OK] aaa
+9"
+runtest ": run-test \"0eq1\" 0 1 eq test ; run-test 9 ." "[ERROR] 0eq1"
 runtest "dump-type to-pointer" "Fixnum -- Pointer"
 runtest ": 555p 555 to-pointer ; : main 555p to-int . ; dump-type 555p main" " -- Pointer555" # cast
 

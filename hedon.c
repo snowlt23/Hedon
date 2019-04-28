@@ -1193,6 +1193,7 @@ void word_dotq() {
 }
 void word_cr() {
   printf("\n");
+  fflush(stdout);
 }
 
 void word_op() {

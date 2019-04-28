@@ -1,0 +1,37 @@
+: add5 5 + ;
+: x9 4 add5 ;
+
+: basic-math
+  "+" 1 1 + 2 eq test
+  "-" 4 2 - 2 eq test
+  "*" 2 3 mul 6 eq test
+  "/" 8 4 div 2 eq test
+  "mod" 8 3 mod 2 eq test
+;
+
+: basic-word
+  "word def" 4 add5 9 eq test
+  "word call" x9 9 eq test
+;
+
+: stack-shuffle
+  "dup" 4 dup + 8 eq test
+  "2dup" 1 2 2dup + + + 6 eq test
+  "swap" 4 8 swap - 4 eq test
+;
+
+: data-flow
+  "dip" 4 5 [ 4 + ] dip - 3 eq test
+  "2dip" 4 5 [ 3 ] 2dip - - 4 eq test
+  "keep" 4 5 [ + ] keep - 4 eq test
+  "2keep" 4 5 [ + ] 2keep - - 10 eq test
+  "bi" 1 [ 2 + ] [ 3 + ] bi - -1 eq test
+  "bi@" 1 2 [ 2 + ] bi@ - -1 eq test
+;
+
+: main
+  basic-math
+  basic-word
+  stack-shuffle
+  data-flow
+; main
