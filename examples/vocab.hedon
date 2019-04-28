@@ -3,4 +3,8 @@
   : hh helloworld helloworld ;
 previous
 
+vocabulary mymath also
+  : add5 5 + ;
+previous
+
 : main helloworld ;

@@ -40,3 +40,6 @@ rem ( lentable "word-name" "UniqueT" "LentT" -- )
     "lent" >>impl
   >vocab
 ;
+
+rem ( vocabulary "vocabname" -- <vocab> )
+: vocabulary parse-name <vocab> ;
