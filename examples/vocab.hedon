@@ -1,0 +1,6 @@
+"hello" <vocab> also
+  : helloworld "Hello World!" .s ;
+  : hh helloworld helloworld ;
+previous
+
+: main helloworld ;

@@ -124,6 +124,9 @@ runtest ": run-test \"0eq1\" [ 0 1 eq ] test ; run-test 9 ." "[ERROR] 0eq1"
 runtest "dump-type to-pointer" "Fixnum -- Pointer"
 runtest ": 555p 555 to-pointer ; : main 555p to-int . ; dump-type 555p main" " -- Pointer555" # cast
 
+# vocab
+error_filetest "examples/vocab.hedon" "error in main: undefined helloworld word at helloworld"
+
 # cffi
 runtest ": main 9 test.call1 c.call1 . ; main" "9"
 runtest ": main 1 2 test.call2 c.call2 . ; main" "-1"

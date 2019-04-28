@@ -82,8 +82,8 @@
     else return t; \
   }
 
-#define WORDSIZE 8
-#define DEFAULT_STACKSIZE (WORDSIZE*1024)
+#define CELLSIZE 8
+#define DEFAULT_STACKSIZE (CELLSIZE*1024)
 
 typedef struct {
   uint8_t* s;
@@ -128,7 +128,6 @@ typedef struct {
 } Eff;
 typedef struct _Def {
   char name[256];
-  char* bufferaddr;
   Token* quot;
   uint8_t* wp;
   size_t codesize;
@@ -136,9 +135,14 @@ typedef struct _Def {
   Stack* freezein;
   Stack* freezeout;
   bool immediate;
-  Stack* traitwords;
   bool polymorphic;
+  Stack* traitwords;
 } Def;
+
+typedef struct {
+  char name[256];
+  Stack* words;
+} Vocab;
 
 typedef struct {
   Stack* in;
@@ -151,10 +155,11 @@ uint8_t* cp;
 Stack* data;
 bool state;
 bool codegenstate;
-Stack* globaldefs;
 Token* intoken;
 Stack* inquot;
 int quotpos;
+Vocab* globaldefs;
+Stack* searchlist;
 
 Stack* imm_typein;
 Stack* imm_typeout;
@@ -401,7 +406,6 @@ EffSave* save_inout(Stack* in, Stack* out) {
 Def* new_def() {
   Def* def = malloc(sizeof(Def));
   def->effects = new_stack();
-  def->bufferaddr = buffer;
   def->immediate = NULL;
   def->traitwords = NULL;
   def->polymorphic = false;
@@ -413,15 +417,38 @@ bool is_trait(Def* def) {
 }
 
 Def* search_def(char* s) {
-  for (int i=stacklen(globaldefs)-1; i>=0; i--) {
-    Def* def = get(globaldefs, i);
-    if (strcmp(def->name, s) == 0) return def;
+  for (int i=stacklen(searchlist)-1; i>=0; i--) {
+    Vocab* v = get(searchlist, i);
+    for (int j=stacklen(v->words)-1; j>=0; j--) {
+      Def* def = get(v->words, j);
+      if (strcmp(def->name, s) == 0) return def;
+    }
   }
   return NULL;
 }
 
 Def* last_def() {
-  return get(globaldefs, stacklen(globaldefs)-1);
+  Vocab* v = get(searchlist, stacklen(searchlist)-1);
+  return get(v->words, stacklen(v->words)-1);
+}
+
+//
+// Vocabulary
+//
+
+Vocab* new_vocab(char* name) {
+  Vocab* v = malloc(sizeof(Vocab));
+  strncpy(v->name, name, 256);
+  v->words = new_stack(CELLSIZE);
+  return v;
+}
+
+Vocab* last_vocab() {
+  return get(searchlist, stacklen(searchlist)-1);
+}
+
+void add_def(Def* def) {
+  push(last_vocab()->words, def);
 }
 
 //
@@ -723,7 +750,7 @@ void word_cstr() {
 void word_def() {
   Token* n = parse_token(); // parse name
   Def* def = new_def();
-  push(globaldefs, def);
+  add_def(def);
   strcpy(def->name, n->name);
   def->wp = cp;
 
@@ -1013,7 +1040,7 @@ void word_create_def() {
   Token* n = (Token*)pop_x();
   Stack* q = (Stack*)pop_x();
   Def* def = new_def();
-  push(globaldefs, def);
+  add_def(def);
   strcpy(def->name, n->name);
   def->wp = cp;
   bool tmpstate = state;
@@ -1072,7 +1099,7 @@ void word_set_eff() {
 
 void word_add_to_vocab() {
   Def* def = (Def*)pop_x();
-  push(globaldefs, def);
+  add_def(def);
 }
 
 void word_create_eff() {
@@ -1091,6 +1118,27 @@ void word_add_effout() {
   Stack* eff = (Stack*)pop_x();
   push(eff, new_eff(def, EFF_OUT));
   push_x((size_t)eff);
+}
+
+void word_create_vocab() {
+  char* name = (char*)pop_x();
+  push_x((size_t)new_vocab(name));
+}
+
+void word_add_def() {
+  Def* def = (Def*)pop_x();
+  Vocab* v = (Vocab*)pop_x();
+  push(v->words, def);
+  push_x((size_t)v);
+}
+
+void word_also() {
+  Vocab* v = (Vocab*)pop_x();
+  push(searchlist, v);
+}
+
+void word_previous() {
+  push_x((size_t)pop(searchlist));
 }
 
 void word_as_type() {
@@ -1410,6 +1458,12 @@ void eval_token(Token* token) {
   BUILTIN_WORD(">>eff.in", word_add_effin, -8, {IN_EFF("Eff", "Word"); OUT_EFF("Eff")});
   BUILTIN_WORD(">>eff.out", word_add_effout, -8, {IN_EFF("Eff", "Word"); OUT_EFF("Eff")});
 
+  BUILTIN_WORD("<vocab>", word_create_vocab, 0, {IN_EFF("Cstr"); OUT_EFF("Vocab")});
+  BUILTIN_WORD(">>def", word_add_def, -8, {IN_EFF("Vocab", "Word"); OUT_EFF("Vocab")});
+  BUILTIN_WORD("also", word_also, -8, {IN_EFF("Vocab")});
+  BUILTIN_WORD("previous", word_previous, 8, {OUT_EFF("Vocab")});
+  // BUILTIN_WORD("definitions", word_definitions, -8, {IN_EFF("Vocab")});
+
   BUILTIN_WORD("builtin.dp", word_dp, 8, {OUT_EFF("Int")});
   BUILTIN_WORD("builtin.cp", word_cp, 8, {OUT_EFF("Int")});
   BUILTIN_WORD(".", word_dot, -8, {IN_EFF("Int")});
@@ -1464,7 +1518,9 @@ void startup(size_t buffersize, size_t dpsize, size_t cpsize, size_t datasize) {
   codegenstate = true;
   quotpos = -1;
 
-  globaldefs = new_stack_cap(sizeof(Def*)*4096);
+  globaldefs = new_vocab("globals");
+  searchlist = new_stack();
+  push(searchlist, globaldefs);
 
   imm_typein = new_stack();
   imm_typeout = new_stack();
