@@ -70,6 +70,7 @@ Type Fixnum is
 : rdx> grow [ 0x48 0x89 0x13 ] X ;
 : Int.dup >rax grow rax> ; impl dup
 : Cstr.dup Int.dup ; ![ Cstr -- Cstr Cstr ] impl dup
+: Bool.dup Int.dup ; ![ Bool -- Bool Bool ] impl dup
 : Type.dup Int.dup ; ![ Type -- Type Type ] impl dup
 : Pointer.dup Int.dup ; ![ Pointer -- Pointer Pointer ] impl dup
 : Quot.dup Int.dup ; ![ Quot -- Quot Quot ] impl dup
@@ -158,6 +159,13 @@ Type Fixnum is
   Int eff.push eff.push eff.push Int eff.push
 ;
 : Int.pick3 sp@ cell cell + cell + p+ @ ; eff.attach Int.pick3.eff
+: pick3.eff
+  b dup eff.drop
+  a dup eff.drop
+  Fixnum eff.drop
+  Fixnum eff.push eff.push eff.push Fixnum eff.push
+;
+: pick3 sp@ cell cell + cell + p+ @ ; eff.attach pick3.eff
 : +! dup @ Int.pick3 + Pointer.Int.swap ! Int.drop ;
 : 1+ 1 + ;
 

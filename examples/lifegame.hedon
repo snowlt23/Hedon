@@ -1,0 +1,89 @@
+: n 50 ;
+: map-size n 2 + dup mul ;
+array map1 Pointer map-size Int.allot
+array map2 Pointer map-size Int.allot
+var state' ![ -- Pointer ]
+: state@ state' @ ; ![ -- Bool ]
+: state! state' ! ; ![ Bool -- ]
+: change-state state@ not state! ;
+: index2d n 2 + mul + ; rem ( x y -- i )
+: map1-cell index2d map1 swap array-addr-by-index ;
+: map2-cell index2d map2 swap array-addr-by-index ;
+: map-cell state@ [ map1-cell ] [ map2-cell ] if ;
+: tmap-cell state@ not [ map1-cell ] [ map2-cell ] if ;
+
+var x32 ![ -- Pointer ]
+: xorshift32.seed! x32 ! ;
+2463534242 xorshift32.seed!
+: xorshift32
+  x32 u32@ x32 u32@ 13 shl xor x32 !
+  x32 u32@ x32 u32@ 17 shr xor x32 !
+  x32 u32@ x32 u32@ 5 shl xor x32 !
+  x32 u32@
+;
+: Int.max 4294967296 ;
+: init-cell-by-rand xorshift32 Int.max 10 div le cast> Int swap ! ;
+: init-cell 0 swap ! ;
+: init
+  0 n 2 + [ 0 n 2 + [ 2dup map-cell init-cell ] do ] do
+  1 n 1+ [ 1 n 1+ [ 2dup map-cell init-cell-by-rand ] do ] do
+;
+
+: bi+ swap [ + ] dip swap [ + ] dip swap ;
+: offset-cell bi+ map-cell @ ;
+: rect-sum
+  [ -1 -1 offset-cell ] 2keep
+  [  0 -1 offset-cell ] 2keep
+  [  1 -1 offset-cell ] 2keep
+  [ -1  0 offset-cell ] 2keep
+  [  1  0 offset-cell ] 2keep
+  [ -1  1 offset-cell ] 2keep
+  [  0  1 offset-cell ] 2keep
+  [  1  1 offset-cell ] 2keep
+   drop drop + + + + + + +
+;
+
+rem ( x y rect )
+: update-cell
+  dup 2 eq [ drop drop drop ] [ 3 eq [ tmap-cell 1 swap ! ] [ tmap-cell 0 swap ! ] if ] if
+;
+
+: update
+  1 n 1+ [ 1 n 1+ [
+    2dup 2dup
+    rect-sum update-cell
+  ] do ] do
+  change-state
+;
+
+: print-cell map-cell @ 1 eq [ "〇" .s ] [ "　" .s ] if ;
+: print-map
+  1 n 1+ [ 1 n 1+ [
+    2dup print-cell
+  ] do cr ] do
+;
+: esc 27 ;
+: upper30 esc .c "[50A" .s ;
+
+var ts' ![ -- Pointer ]
+allot-timespec cast> Pointer ts' p!
+: ts ts' p@ cast> Timespec ;
+var ts2' ![ -- Pointer ]
+allot-timespec cast> Pointer ts2' p!
+: ts2 ts2' p@ cast> Timespec ;
+ts 0 >>sec Fixnum.drop
+ts 300000000 >>nsec Fixnum.drop
+
+: main
+  313 xorshift32.seed!
+  false state@
+  init
+  [ true ] [ print-map update upper30 ts ts2 nanosleep ] while
+;
+
+rem false state@
+rem init
+rem print-map
+rem update
+
+main

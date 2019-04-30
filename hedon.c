@@ -1181,6 +1181,11 @@ void word_dot() {
   printf("%zd", x);
   fflush(stdout);
 }
+void word_dotc() {
+  char x = (char)pop_x();
+  putchar(x);
+  fflush(stdout);
+}
 void word_dots() {
   char* x = (char*)pop_x();
   printf("%s", x);
@@ -1468,6 +1473,7 @@ void eval_token(Token* token) {
   BUILTIN_WORD("builtin.dp", word_dp, 8, {OUT_EFF("Int")});
   BUILTIN_WORD("builtin.cp", word_cp, 8, {OUT_EFF("Int")});
   BUILTIN_WORD(".", word_dot, -8, {IN_EFF("Int")});
+  BUILTIN_WORD(".c", word_dotc, -8, {IN_EFF("Int")});
   BUILTIN_WORD(".s", word_dots, -8, {IN_EFF("Cstr")});
   BUILTIN_WORD(".q", word_dotq, -8, {IN_EFF("Quot")});
   BUILTIN_WORD("cr", word_cr, 0, {});
@@ -1575,7 +1581,7 @@ void load_core() {
 }
 
 int main(int argc, char** argv) {
-  startup(1024*1024, 1024*10, 1024*1024, 1024*1024);
+  startup(1024*1024, 1024*1024, 1024*1024, 1024*1024);
 
   load_core();
 

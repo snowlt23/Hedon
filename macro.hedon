@@ -4,23 +4,26 @@
 : 2dup
   swap dup [ swap dup ] dip swap
 ; eff.attach 2dup.eff
+: 3dup.eff
+  a dup eff.drop b dup eff.drop c dup eff.drop dup eff.push [ dup eff.push ] dip [ dup eff.push ] 2dip eff.push eff.push eff.push
+;
+: 3dup
+  [ dup ] 2keep
+; eff.attach 2dup.eff
 : bi@ dup compile [ swap ] postcompile compile [ swap ] postcompile ; immediate
 
-rem n q --
+rem s e q --
 : do
-  [ 0 ] postcompile
-  [ 2dup gr ] postquot
-  [ [ 1+ ] postquot combine ] dip
-  swap [ while ] postcompile
+  [ Fixnum.spill Fixnum.drop ] postcompile
+  [ dup Fixnum.restore Fixnum.spill le ] postquot
+  swap
+  [ 1+ ] postquot combine
+  [ while ] postcompile
+  [ Fixnum.restore Fixnum.drop Fixnum.drop ] postcompile
 ; immediate
 
 rem n "name"
 : return-pointer Pointer eff.push ;
-: array dp @ literal token-to-quot parse-token create-def [ return-pointer ] eff.postattach ;
-: array-addr-by-index cell mul p+ ;
-: array@ swap array-addr-by-index @ ;
-: array! swap array-addr-by-index ! ;
-: Int.allot cell mul allot ;
 
 : cast> Fixnum eff.drop parse-token token-name search-word as-type eff.push ; immediate
 : to-pointer cast> Pointer ;
@@ -42,3 +45,14 @@ rem ( lentable "word-name" "UniqueT" "LentT" -- )
 
 rem ( vocabulary "vocabname" -- <vocab> )
 : vocabulary parse-name <vocab> ;
+
+: array
+  parse-name <word>
+    dp @ literal token-to-quot >>code
+    <eff> parse-word >>eff.out >>eff
+  >vocab
+;
+: array-addr-by-index cell mul p+ ;
+: array@ swap array-addr-by-index @ ;
+: array! swap array-addr-by-index ! ;
+: Int.allot cell mul allot ;
