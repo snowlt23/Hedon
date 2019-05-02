@@ -1,0 +1,9 @@
+suite
+
+: if-test1
+  "if-true" false [ 4 ] [ 5 ] if 5 eq check
+  "if-false" true [ 4 ] [ 5 ] if 4 eq check
+; if-test1
+
+: if-test2 [ 4 ] [ ] if ;
+"if out-effect" "error in if-test2: Int <-> <> unmatch out-effect at if" check-error

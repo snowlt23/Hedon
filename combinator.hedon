@@ -149,6 +149,13 @@ rem controlflow
   eff.save eff.check
 ; immediate
 : not [ false ] [ true ] if ;
+: and [ [ true ] [ false ] if ] [ drop false ] if ;
+
+: ret
+  Fixnum eff.drop
+  0x48 op 0x83 op 0xc4 op 0x08 op rem add rsp, 8
+  0xc3 op rem ret
+; immediate
 
 : write-while
   0x48 op 0x8b op 0x03 op         rem mov rax [rbx]

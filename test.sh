@@ -45,6 +45,15 @@ error_filetest() {
   fi
 }
 
+langtest() {
+  ./hedon -l $1 -c
+  RET=$?
+  if [ "$RET" != "0" ] ; then
+    echo "<<ERROR>> language test $1"
+    exit 1
+  fi
+}
+
 runtest "555 ." "555"
 runtest "4 5 + ." "9"
 runtest "dump-effect +" "Int:in Int:in Int:out "
@@ -97,13 +106,13 @@ runtest ": main false [ 4 . ] when true [ 5 . ] when ; main" "5"
 runtest ": main false [ 4 . ] when true [ 5 . ] when ; dump-type main" " -- "
 errortest "0 : main false when ;" "error in main: stack is empty, but expected Quot value at when"
 errortest ": main [ 5 . ] when ; dump-type main false main true main" "Bool -- 5"
-errortest ": main true [ 4 ] when ; main" " <-> Int error in main: unmatch out-effect at when"
+errortest ": main true [ 4 ] when ; main" "error in main: <> <-> Int unmatch out-effect at when"
 runtest ": main true [ 4 . ] [ 5 . ] if false [ 4 . ] [ 5 . ] if ; main" "45"
 runtest ": main false [ 4 ] [ 5 ] if ; dump-type main main ." " -- Int5"
 runtest ": main false [ 4 ] [ 5 ] if . 6 . ; main" "56"
 runtest ": nnot [ false ] [ true ] if ; true nnot .b false nnot .b" "01"
-errortest ": main true [ 4 ] [ ] if ; main" "Int <->  error in main: unmatch out-effect at if"
-errortest ": main true [ . ] [ ] if ; main" "Int <->  error in main: unmatch in-effect at if"
+errortest ": main true [ 4 ] [ ] if ; main" "error in main: Int <-> <> unmatch out-effect at if"
+errortest ": main true [ . ] [ ] if ; main" "error in main: Int <-> <> unmatch in-effect at if"
 runtest ": main 0 [ dup 10 le ] [ dup . 1 + ] while ; main" "0123456789"
 
 filetest "examples/variable.hedon" "09"
@@ -139,6 +148,17 @@ runtest "dump-type String.lent" "StringU -- StringU String"
 runtest ": main 7 new-cstr [ \"yukarin\" strcpy ] keep .s ; main" "yukarin"
 runtest ": main \"yuka\" string \"maki\" string concat .ss ; main" "yukamaki"
 runtest ": main \"kiri\" \"kizu\" \"aka\" \"maki\" \"yuka\" string appendc appendc appendc appendc ; main .ss" "yukamakiakakizukiri"
+runtest ": main \"yuka\" \"kiri\" streq? .b \"yuka\" \"yuka\" streq? .b ; main" "01"
 
 # file
-filetest "examples/fileio.hedon" "yukayuka"
+# filetest "examples/fileio.hedon" "yukayuka"
+
+echo "<<Language Test>>"
+langtest "tests/basic.hedon"
+langtest "tests/controlflow.hedon"
+langtest "tests/vocab.hedon"
+# langtest "tests/linear.hedon"
+# langtest "tests/macro.hedon"
+# langtest "tests/cffi.hedon"
+# langtest "tests/string.hedon"
+# langtest "tests/fileio.hedon"

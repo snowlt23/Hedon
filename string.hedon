@@ -11,6 +11,15 @@ rem d s n
 : strcpy dup strlen 1+ strcpyn ;
 : new-cstr 1+ c.malloc pointer-to-cstr ;
 
+rem ( s1 s2 -- b )
+: eq-len? 2dup [ strlen ] bi@ eq ;
+: strend? c@ 0 eq ;
+: streq-char? [ c@ ] bi@ eq ;
+: streq?
+  [ dup strend? not ] [ 2dup streq-char? not [ drop drop false ret "" "" ] when [ 1 s+ ] bi@ ] while
+  drop drop true
+;
+
 : StringU newtype ;
 : String newtype ;
 lentable String.lent StringU String

@@ -4,6 +4,7 @@
 #include <string.h>
 #include <stdbool.h>
 #include <assert.h>
+#include <stdarg.h>
 
 #ifdef WIN32
   #include <windows.h>
@@ -18,7 +19,6 @@
 
 #define debug(...) {fprintf(stderr, "L%d: ", __LINE__); fprintf(stderr, __VA_ARGS__); fprintf(stderr, "\n");}
 #define ierror(...) {fprintf(stderr, __VA_ARGS__); exit(1);}
-#define error(...) {fprintf(stderr, "error in %s: ", last_def()->name); fprintf(stderr, __VA_ARGS__); fprintf(stderr, " at %s", intoken->name); exit(1);}
 
 #define spill_globaltype \
   Stack* itmpin = imm_typein; \
@@ -178,16 +178,58 @@ Type* cstrt;
 
 void call_word_asm(uint8_t** spp, uint8_t* wp);
 
+void push_x(size_t x);
+void imm_push_type(Type* t);
+void imm_apply_effects(Def* def);
+void call_word(uint8_t* wp);
 Def* last_def();
 Token* parse_token();
+Def* search_def(char* name);
 void print_quot(Stack* q);
 void print_token(Token* t);
+char* format_typestack(Stack* s);
 void dump_typestack(FILE* f, Stack* s);
 void typing_quot(Stack* t);
 void codegen_quot(Stack* t);
 void eval_quot(Stack* t);
 void eval_token(Token* t);
 void imm_eval_token(Token* t);
+
+//
+// Util
+//
+
+char* vformat(char* fmt, va_list ap) {
+  char buf[2048];
+  vsnprintf(buf, sizeof(buf), fmt, ap);
+  return strdup(buf);
+}
+
+char* format(char* fmt, ...) {
+  va_list ap;
+  va_start(ap, fmt);
+  char* s = vformat(fmt, ap);
+  va_end(ap);
+  return s;
+}
+
+void error(char* fmt, ...) {
+  va_list ap;
+  va_start(ap, fmt);
+  char* s = vformat(fmt, ap);
+  s = format("error in %s: %s at %s", last_def()->name, s, intoken->name);
+  va_end(ap);
+  Def* def = search_def("trap.error");
+  if (def != NULL) {
+    imm_push_type(cstrt);
+    push_x((size_t)s);
+    imm_apply_effects(def);
+    call_word(def->wp);
+  } else {
+    fprintf(stderr, "%s", s);
+    exit(1);
+  }
+}
 
 //
 // Stack
@@ -859,8 +901,8 @@ void word_eff_load() {
 void word_eff_check() {
   EffSave* b = (EffSave*)pop_x();
   EffSave* a = (EffSave*)pop_x();
-  if (!eq_typestack(a->in, b->in)) {dump_typestack(stderr, a->in); fprintf(stderr, " <-> "); dump_typestack(stderr, b->in); fprintf(stderr, " "); error("unmatch in-effect");}
-  if (!eq_typestack(a->out, b->out)) {dump_typestack(stderr, a->out); fprintf(stderr, " <-> "); dump_typestack(stderr, b->out); fprintf(stderr, " "); error("unmatch out-effect");}
+  if (!eq_typestack(a->in, b->in)) error("%s <-> %s unmatch in-effect", format_typestack(a->in), format_typestack(b->in));
+  if (!eq_typestack(a->out, b->out)) error("%s <-> %s unmatch out-effect", format_typestack(a->out), format_typestack(b->out));
 }
 
 void word_immediate() {
@@ -960,6 +1002,19 @@ void word_force_effects() {
   if (inout == EFF_IN) def->effects = rev_stack(def->effects);
 
   word_freeze_eff(def);
+}
+
+char* format_typestack(Stack* s) {
+  Type* tfirst = get(s, 0);
+  char buf[2048];
+  char* p = buf;
+  if (stacklen(s) != 0) p += snprintf(p, sizeof(buf)-(p-buf), "%s", typename(tfirst));
+  else snprintf(p, sizeof(buf), "<>");
+  for (int i=1; i<stacklen(s); i++) {
+    Type* t = get(s, i);
+    p += snprintf(p, sizeof(buf)-(p-buf), " %s", typename(t));
+  }
+  return strdup(buf);
 }
 
 void dump_typestack(FILE* f, Stack* s) {
@@ -1609,6 +1664,7 @@ void load_core() {
   eval_file_path("macro.hedon");
   eval_file_path("string.hedon");
   eval_file_path("fileio.hedon");
+  eval_file_path("unittest.hedon");
 }
 
 int main(int argc, char** argv) {

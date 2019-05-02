@@ -1,0 +1,11 @@
+"mymath" <vocab> also
+  : add5 5 + ;
+previous definitions
+
+vocabulary extmymath also
+  : x9 4 .mymath.add5 ;
+previous definitions
+
+: main
+  "vocab" .extmymath.x9 9 eq test
+; main

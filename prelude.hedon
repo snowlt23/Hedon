@@ -147,6 +147,8 @@ Type Fixnum is
 : ! >rax >rcx [ 0x48 0x89 0x08 ] X ; ![ Int Pointer -- ]
 : p@ @ ; ![ Pointer -- Pointer ]
 : p! ! ; ![ Pointer Pointer -- ]
+: s@ @ ; ![ Pointer -- Cstr ]
+: s! ! ; ![ Cstr Pointer -- ]
 : s+ + ; ![ Cstr Int -- Cstr ]
 : u8@ >rax [ 0x8a 0x00 0x48 0x0f 0xb6 0xc0 ] X rax> ; ![ Pointer -- Int ]
 : u8! >rax >rcx [ 0x88 0x08 ] X ; ![ Int Pointer -- ]

@@ -1,0 +1,17 @@
+var suite.state' ![ -- Pointer ]
+var trap.errormsg' ![ -- Pointer ]
+: suite.state@ suite.state' @ cast> Bool ;
+: suite.state! suite.state' ! ; ![ Bool -- ]
+"empty" trap.errormsg' s!
+false suite.state!
+: trap.error
+  trap.errormsg' s!
+  suite.state@ not [ trap.errormsg' s@ .s 1 exit ] when
+;
+: error trap.error ;
+
+: check [ "[OK] " .s .s cr ] [ "[ERROR] " .s .s cr 1 exit ] if ;
+: test check ;
+: check-error-msg trap.errormsg' s@ streq? ;
+: check-error check-error-msg [ "[OK] " .s .s cr ] [ "[ERROR] " .s .s cr 1 exit ] if ;
+: suite true suite.state! ;
