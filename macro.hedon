@@ -52,7 +52,7 @@ rem ( vocabulary "vocabname" -- <vocab> )
     <eff> parse-word >>eff.out >>eff
   >vocab
 ;
-: array-addr-by-index cell mul p+ ;
+: array-addr-by-index cell * p+ ;
 : array@ swap array-addr-by-index @ ;
 : array! swap array-addr-by-index ! ;
-: Int.allot cell mul allot ;
+: Int.allot cell * allot ;

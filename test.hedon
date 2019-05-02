@@ -4,8 +4,8 @@
 : basic-math
   "+" 1 1 + 2 eq test
   "-" 4 2 - 2 eq test
-  "*" 2 3 mul 6 eq test
-  "/" 8 4 div 2 eq test
+  "*" 2 3 * 6 eq test
+  "/" 8 4 / 2 eq test
   "mod" 8 3 mod 2 eq test
 ;
 

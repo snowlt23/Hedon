@@ -1,0 +1,16 @@
+vocabulary compiler also
+
+var compiler.buffer' ![ -- Pointer ]
+var compiler.mem' ![ -- Pointer ]
+
+: init
+  1024 1024 * alloc compiler.mem' p!
+;
+
+: load-file-to-buffer ;
+: parse-token ;
+: compile-file ;
+
+previous definitions
+
+.compiler.init

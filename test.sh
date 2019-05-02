@@ -57,7 +57,7 @@ runtest ": add5 5 + ; dump-type add5" "Int -- Int"
 runtest ": add5 5 + ; dump-effect add5" "Int:out Int:in Int:in Int:out "
 runtest ": add5 5 + ; : x9 4 add5 ; x9 ." "9"
 runtest ": m 5 eq ; 4 m .b 5 m .b" "01"
-runtest ": main 8 4 div . ; main" "2"
+runtest ": main 8 4 / . ; main" "2"
 runtest ": main 8 5 mod . ; main" "3"
 
 runtest "4 5 Int.drop ." "4"

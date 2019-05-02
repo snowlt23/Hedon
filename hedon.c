@@ -160,6 +160,7 @@ Stack* inquot;
 int quotpos;
 Vocab* globaldefs;
 Stack* searchlist;
+Stack* definitions;
 
 Stack* imm_typein;
 Stack* imm_typeout;
@@ -1141,6 +1142,10 @@ void word_previous() {
   push_x((size_t)pop(searchlist));
 }
 
+void word_definitions() {
+  push(definitions, (Vocab*)pop_x());
+}
+
 void word_as_type() {
   Def* def = (Def*)pop_x();
   call_word(def->wp);
@@ -1343,6 +1348,33 @@ void eval_quot(Stack* s) {
   inquot = tmpinquot;
 }
 
+void eval_def(Def* def) {
+  if (def->immediate) {
+    imm_apply_effects(def);
+    call_word(def->wp);
+  // } else if (is_trait(def) && !state) {
+  //   error("trait can't call on toplevel in currently");
+  } else if (is_trait(def) && !codegenstate) {
+    apply_effects(def);
+  } else if (is_trait(def) && codegenstate) {
+    Def* solved = solve_trait_word(def->traitwords);
+    if (solved == NULL) {
+      if (!last_def()->polymorphic) error("unresolved %s trait word", def->name);
+    } else {
+      write_call_word((size_t)solved->wp);
+    }
+    apply_effects(def);
+  } else if (def->polymorphic) {
+    expand_word(def);
+  } else if (state) {
+    apply_effects(def);
+    write_call_word((size_t)def->wp);
+  } else {
+    imm_apply_effects(def);
+    call_word(def->wp);
+  }
+}
+
 void eval_token(Token* token) {
   intoken = token;
   if (token->kind == TOKEN_QUOT) {
@@ -1354,30 +1386,7 @@ void eval_token(Token* token) {
 
   Def* def = search_def(token->name);
   if (def != NULL) {
-    if (def->immediate) {
-      imm_apply_effects(def);
-      call_word(def->wp);
-    // } else if (is_trait(def) && !state) {
-    //   error("trait can't call on toplevel in currently");
-    } else if (is_trait(def) && !codegenstate) {
-      apply_effects(def);
-    } else if (is_trait(def) && codegenstate) {
-      Def* solved = solve_trait_word(def->traitwords);
-      if (solved == NULL) {
-        if (!last_def()->polymorphic) error("unresolved %s trait word", def->name);
-      } else {
-        write_call_word((size_t)solved->wp);
-      }
-      apply_effects(def);
-    } else if (def->polymorphic) {
-      expand_word(def);
-    } else if (state) {
-      apply_effects(def);
-      write_call_word((size_t)def->wp);
-    } else {
-      imm_apply_effects(def);
-      call_word(def->wp);
-    }
+    eval_def(def);
     return;
   }
   
@@ -1402,6 +1411,26 @@ void eval_token(Token* token) {
       push_x(p);
     }
     return;
+  }
+
+  // vocabulary syntax
+  if (token->name[0] == '.') {
+    char* n = token->name+1;
+    while (*n != '.' && *n != '\0') n++;
+    n++;
+    char vn[255] = {};
+    strncpy(vn, token->name+1, (int)(n-token->name-2));
+    for (int i=0; i<stacklen(definitions); i++) {
+      Vocab* v = get(definitions, i);
+      if (strcmp(v->name, vn) != 0) continue;
+      for (int i=stacklen(v->words)-1; i>=0; i--) {
+        Def* def = get(v->words, i);
+        if (strcmp(def->name, n) == 0) {
+          eval_def(def);
+          return;
+        }
+      }
+    }
   }
 
   long x = strtol(token->name, NULL, 0);
@@ -1468,7 +1497,7 @@ void eval_token(Token* token) {
   BUILTIN_WORD(">>def", word_add_def, -8, {IN_EFF("Vocab", "Word"); OUT_EFF("Vocab")});
   BUILTIN_WORD("also", word_also, -8, {IN_EFF("Vocab")});
   BUILTIN_WORD("previous", word_previous, 8, {OUT_EFF("Vocab")});
-  // BUILTIN_WORD("definitions", word_definitions, -8, {IN_EFF("Vocab")});
+  BUILTIN_WORD("definitions", word_definitions, -8, {IN_EFF("Vocab")});
 
   BUILTIN_WORD("builtin.dp", word_dp, 8, {OUT_EFF("Int")});
   BUILTIN_WORD("builtin.cp", word_cp, 8, {OUT_EFF("Int")});
@@ -1527,7 +1556,9 @@ void startup(size_t buffersize, size_t dpsize, size_t cpsize, size_t datasize) {
 
   globaldefs = new_vocab("globals");
   searchlist = new_stack();
+  definitions = new_stack();
   push(searchlist, globaldefs);
+  push(definitions, globaldefs);
 
   imm_typein = new_stack();
   imm_typeout = new_stack();

@@ -1,10 +1,11 @@
 "hello" <vocab> also
   : helloworld "Hello World!" .s ;
   : hh helloworld helloworld ;
-previous
+previous definitions
 
 vocabulary mymath also
   : add5 5 + ;
-previous
+previous definitions
 
+: vocab-syntax .hello.helloworld ;
 : main helloworld ;

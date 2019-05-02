@@ -1,4 +1,4 @@
-: n 30 ;
+: n 20 ;
 : map-size n 2 + dup mul ;
 array map1 Pointer map-size Int.allot
 array map2 Pointer map-size Int.allot
@@ -50,7 +50,10 @@ var x32 ![ -- Pointer ]
   0 n 2 + [ 0 n 2 + [ 2dup map-cell init-cell ] do ] do
   0 n 2 + [ 0 n 2 + [ 2dup tmap-cell init-cell ] do ] do
   5 5 glider
+  10 10 glider
   10 5 blinker
+  5 10 blinker
+  15 10 blinker
 ;
 
 : offset-cell bi+ map-cell @ ;
@@ -90,7 +93,7 @@ rem ( x y rect )
   ] do cr ] do
 ;
 : esc 27 ;
-: upper30 esc .c "[30A" .s ;
+: upper30 esc .c "[20A" .s ;
 
 var ts' ![ -- Pointer ]
 allot-timespec cast> Pointer ts' p!
