@@ -34,7 +34,7 @@ lentable String.lent StringU String
 : String.swap Int.swap ; ![ String String -- String String ] impl swap
 
 : length String.len @ ;
-: String.need-extend [ length + ] keep String.cap @ le not ;
+: String.need-extend [ length + ] keep String.cap @ < not ;
 : String.2cap dup String.cap @ dup + swap String.cap ! ;
 : String.extend-cap [ 2dup String.need-extend ] [ dup String.2cap ] while drop drop ;
 : String.realloc [ string-to-pointer ] keep String.cap @ String.head-size + 1 + realloc pointer-to-string ;

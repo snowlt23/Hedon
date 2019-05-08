@@ -15,7 +15,7 @@
 rem s e q --
 : do
   [ Fixnum.spill Fixnum.drop ] postcompile
-  [ dup Fixnum.restore Fixnum.spill le ] postquot
+  [ dup Fixnum.restore Fixnum.spill < ] postquot
   swap
   [ 1+ ] postquot combine
   [ while ] postcompile

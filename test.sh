@@ -110,7 +110,7 @@ runtest ": main false [ 4 ] [ 5 ] if . 6 . ; main" "56"
 runtest ": nnot [ false ] [ true ] if ; true nnot .b false nnot .b" "01"
 errortest ": main true [ 4 ] [ ] if ; main" "error in main: Int <-> <> unmatch out-effect at if"
 errortest ": main true [ . ] [ ] if ; main" "error in main: Int <-> <> unmatch in-effect at if"
-runtest ": main 0 [ dup 10 le ] [ dup . 1 + ] while ; main" "0123456789"
+runtest ": main 0 [ dup 10 < ] [ dup . 1 + ] while ; main" "0123456789"
 
 filetest "examples/variable.hedon" "09"
 error_filetest "examples/err.hedon" "error in main2: unresolved drop trait word at drop"
@@ -122,7 +122,7 @@ error_filetest "examples/linear.hedon" "error in write-file-illegal: unmatch l.F
 runtest ": main 4 5 2dup . . . . ; main" "5454"
 runtest ": main swap Int.drop Cstr.drop ; dump-type main" "Int Cstr -- <>"
 runtest ": main 2dup Int.drop Cstr.drop ; dump-type main" "Cstr Int -- Cstr Int"
-runtest ": main 5 0 [ 2dup gr ] [ dup . 1+ ] while ; main" "01234"
+runtest ": main 5 0 [ 2dup > ] [ dup . 1+ ] while ; main" "01234"
 runtest ": main 0 5 [ dup . ] do ; main" "01234"
 runtest "array K Pointer 5 , 4 , 5 , : main 0 K array@ . 1 K array@ . 2 K array@ . ; main" "545"
 runtest ": run-test \"aaa\" 1 1 eq test ; run-test 9 ." "[OK] aaa

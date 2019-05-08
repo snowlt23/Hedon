@@ -1,7 +1,7 @@
 : FileU newtype ;
 : File newtype ;
 : FileMode newtype ;
-: open-file 0 2 syscall3 dup 0 le ; ![ Cstr FileMode -- FileU Int ]
+: open-file 0 2 syscall3 dup 0 < ; ![ Cstr FileMode -- FileU Int ]
 : close-file 3 syscall1 Int.drop ; ![ FileU -- ]
 : r/o 0 ; ![ -- FileMode ]
 : w/o 1 ; ![ -- FileMode ]
