@@ -823,6 +823,15 @@ void word_def() {
   state = false;
 }
 
+void word_template() {
+  Token* n = parse_token(); // parse name
+  Def* def = new_def();
+  add_def(def);
+  strcpy(def->name, n->name);
+  def->polymorphic = true;
+  def->quot = parse_quot();
+}
+
 void word_typeid() {
   write_x(typeidcnt++);
 }
@@ -908,6 +917,11 @@ void word_eff_check() {
 void word_immediate() {
   Def* def = last_def();
   def->immediate = true;
+}
+
+void word_inline() {
+  Def* def = last_def();
+  def->polymorphic = true;
 }
 
 void word_trait() {
@@ -1401,7 +1415,9 @@ bool eval_vocabsyntax(Token* token) {
 bool eval_builtinwords(Token* token) {
   // builtin for def
   BUILTIN_WORD(":", word_def, 0, {});
+  BUILTIN_WORD("template:", word_template, 0, {});
   BUILTIN_WORD("immediate", word_immediate, 0, {});
+  BUILTIN_WORD("inline", word_inline, 0, {});
   BUILTIN_IMM_WORD("trait", word_trait);
   BUILTIN_WORD("impl", word_impl, 0, {});
   BUILTIN_IMM_WORD("![", word_force_effects);

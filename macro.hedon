@@ -12,6 +12,8 @@
 ; eff.attach 2dup.eff
 : bi@ dup compile [ swap ] postcompile compile [ swap ] postcompile ; immediate
 
+: compose combine ; immediate
+
 rem s e q --
 : do
   [ Fixnum.spill Fixnum.drop ] postcompile

@@ -31,20 +31,24 @@ var x32 Pointer
 
 : bi+ swap [ + ] dip swap [ + ] dip ;
 
+template: offset-mark
+  [ bi+ mark-cell ] compose 2keep
+;
+
 : mark-cell
   map-cell 1 swap !
 ;
 : blinker
-  [ -1 0 bi+ mark-cell ] 2keep
-  [ 0  0 bi+ mark-cell ] 2keep
-  [ 1  0 bi+ mark-cell ] 2keep drop drop
+  [ -1 0 ] offset-mark
+  [  0 0 ] offset-mark
+  [  1 0 ] offset-mark
 ;
 : glider
-  [ 0 -1 bi+ mark-cell ] 2keep
-  [ 1  0 bi+ mark-cell ] 2keep
-  [ -1 1 bi+ mark-cell ] 2keep
-  [ 0  1 bi+ mark-cell ] 2keep
-  [ 1  1 bi+ mark-cell ] 2keep drop drop
+  [ 0 -1 ] offset-mark
+  [ 1  0 ] offset-mark
+  [ -1 1 ] offset-mark
+  [ 0  1 ] offset-mark
+  [ 1  1 ] offset-mark
 ;
 : init
   0 n 2 + [ 0 n 2 + [ 2dup map-cell init-cell ] do ] do
