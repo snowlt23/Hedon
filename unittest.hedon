@@ -1,5 +1,5 @@
-var suite.state' ![ -- Pointer ]
-var trap.errormsg' ![ -- Pointer ]
+var suite.state' Pointer
+var trap.errormsg' Pointer
 : suite.state@ suite.state' @ cast> Bool ;
 : suite.state! suite.state' ! ; ![ Bool -- ]
 "empty" trap.errormsg' s!

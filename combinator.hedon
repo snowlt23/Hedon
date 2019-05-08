@@ -117,8 +117,12 @@ rem meta
 : , here ! cell allot ;
 : pointer ; ![ -- Pointer ]
 : token-to-quot quot dup [ push ] dip ;
-: var-def dp @ literal token-to-quot swap create-def 0 , ;
-: var parse-token var-def ;
+: var
+  parse-token token-name <word>
+    dp @ literal token-to-quot 0 , >>code
+    <eff> parse-token token-name search-word >>eff.out >>eff
+  >vocab
+;
 
 rem controlflow
 

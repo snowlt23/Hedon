@@ -53,10 +53,10 @@
 : dlsym builtin.c.dlsym c.call2 ; ![ Pointer Cstr -- Pointer ]
 : dlclose builtin.c.dlclose c.call1 ; ![ Pointer ]
 
-var libc.handle ![ -- Pointer ]
-var c.malloc.ptr ![ -- Pointer ]
-var c.realloc.ptr ![ -- Pointer ]
-var c.free.ptr ![ -- Pointer ]
+var libc.handle Pointer
+var c.malloc.ptr Pointer
+var c.realloc.ptr Pointer
+var c.free.ptr Pointer
 : open-libc "libc.so.6" rtld-lazy dlopen libc.handle p! ;
 : load-libc-symbols
   libc.handle p@ "malloc" dlsym c.malloc.ptr p!

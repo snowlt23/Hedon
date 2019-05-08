@@ -1,4 +1,4 @@
-var nine ![ -- Pointer ]
+var nine Pointer
 : main
   nine @ .
   9 nine !

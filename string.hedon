@@ -59,7 +59,7 @@ lentable String.lent StringU String
 : appendc [ length-cstr ] dip [ dup strlen ] dip String.extend-if-need [ String.tail swap strcpy ] keep [ add-length ] keep ;
 : push-char 1 swap String.extend-if-need [ String.tail c! ] keep [ 1 swap add-length ] keep ;
 
-var nullstr-var ![ -- Pointer ]
+var nullstr-var Pointer
 : init-nullstr here nullstr-var p! 0 here pointer-to-cstr c! 1 allot ;
 : nullchar 0 ;
 : nullstr nullstr-var p@ pointer-to-cstr ;
