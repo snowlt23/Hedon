@@ -1,0 +1,56 @@
+: record.quot-of-offset literal token-to-quot ;
+
+array record.gettername' Pointer 256 allot
+: record.gettername-set! record.gettername' cast> Cstr swap strcpy ;
+: record.gettername-postfix record.gettername' cast> Cstr dup strlen s+ ">>" strcpy ;
+: record.gettername! record.gettername-set! record.gettername-postfix ;
+: record.gettername@ record.gettername' cast> Cstr ;
+
+array record.settername' Pointer 256 allot
+: record.settername-set! record.settername' cast> Cstr 2 s+ swap strcpy ;
+: record.settername-prefix record.settername' cast> Cstr dup strlen s+ ">>" strcpy ;
+: record.settername! record.settername-prefix record.settername-set! ;
+: record.settername@ record.settername' cast> Cstr ;
+
+array record.allocname' Pointer 256 allot
+: record.allocname-set! record.allocname' cast> Cstr swap strcpy ;
+: record.allocname-postfix record.allocname' cast> Cstr dup strlen s+ ".alloc" strcpy ;
+: record.allocname! record.allocname-set! record.allocname-postfix ;
+: record.allocname@ record.allocname' cast> Cstr ;
+
+rem recordname typename offset fieldname
+: def-getter
+  record.gettername!
+  record.gettername@ <word>
+    swap record.quot-of-offset [ swap [ p+ ] dip @ ] postquot combine >>code
+    <eff> swap >>eff.out swap >>eff.in >>eff
+  >vocab
+;
+rem recordname typename offset fieldname
+: def-setter
+  record.settername!
+  record.settername@ <word>
+    swap record.quot-of-offset [ swap [ p+ ] dip ! ] postquot combine >>code
+    <eff> swap >>eff.in swap >>eff.in >>eff
+  >vocab
+;
+
+: def-accessor
+  dup record.gettername! record.settername!
+  def-getter def-setter
+;
+
+rem recordword size recordname
+: def-alloc
+  record.allocname!
+  record.allocname@ <word>
+    swap literal token-to-quot [ alloc ] postquot combine >>code
+    <eff> swap >>eff.out >>eff
+  >vocab
+;
+
+: record: ;
+
+: MyR newtype ;
+"MyR" search-word 32 "MyR" def-alloc
+MyR.alloc

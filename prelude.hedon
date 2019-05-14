@@ -98,6 +98,7 @@ Type Fixnum is
 : Quot.Token.Int.swap ; ![ Quot Token -- Token Quot ] impl swap
 : Token.Quot.Int.swap ; ![ Token Quot -- Quot Token ] impl swap
 : Quot.Type.swap Int.swap ; ![ Quot Type -- Type Quot ] impl swap
+: Word.Eff.swap Int.swap ; ![ Word Eff -- Eff Word ] impl swap
 
 : + >rcx >rax [ 0x48 0x01 0xc8 ] X rax> ;
 : - >rcx >rax [ 0x48 0x29 0xc8 ] X rax> ;
