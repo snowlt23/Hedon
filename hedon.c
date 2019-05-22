@@ -1105,6 +1105,12 @@ void word_add_to_vocab() {
   add_def(def);
 }
 
+void word_word_name() {
+  Def* def = (Def*)pop_x();
+  push_x((size_t)def);
+  push_x((size_t)def->name);
+}
+
 void word_create_eff() {
   push_x((size_t)new_stack());
 }
@@ -1455,6 +1461,7 @@ bool eval_builtinwords(Token* token) {
   BUILTIN_WORD(">>impl", word_add_impl, -8, {IN_EFF("Word", "Cstr"); OUT_EFF("Word")});
   BUILTIN_WORD(">>eff", word_set_eff, -8, {IN_EFF("Word", "Eff"); OUT_EFF("Word")});
   BUILTIN_WORD(">vocab", word_add_to_vocab, -8, {IN_EFF("Word")});
+  BUILTIN_WORD("word-name>>", word_word_name, 8, {IN_EFF("Word"); OUT_EFF("Word", "Cstr")});
   BUILTIN_WORD("as-type", word_as_type, 0, {IN_EFF("Word"); OUT_EFF("Type")});
 
   BUILTIN_WORD("<eff>", word_create_eff, 8, {OUT_EFF("Eff")});

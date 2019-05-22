@@ -45,12 +45,13 @@ rem recordword size recordname
   record.allocname!
   record.allocname@ <word>
     swap literal token-to-quot [ alloc ] postquot combine >>code
-    <eff> swap >>eff.out >>eff
+    [ <eff> swap >>eff.out ] dip swap >>eff
   >vocab
 ;
 
 : record: ;
 
 : MyR newtype ;
-"MyR" search-word 32 "MyR" def-alloc
+: def-MyR.alloc "MyR" search-word 32 "MyR" def-alloc ;
+def-MyR.alloc
 MyR.alloc

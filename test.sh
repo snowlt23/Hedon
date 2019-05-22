@@ -150,6 +150,8 @@ runtest ": main \"yuka\" \"kiri\" streq? .b \"yuka\" \"yuka\" streq? .b ; main" 
 # file
 # filetest "examples/fileio.hedon" "yukayuka"
 
+# record
+
 echo "<<Language Test>>"
 langtest "tests/basic.hedon"
 langtest "tests/controlflow.hedon"
