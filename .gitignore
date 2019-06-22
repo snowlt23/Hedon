@@ -1,4 +1,5 @@
 hedon
+*.o
 *.swp
 image.bmp
 test.txt
