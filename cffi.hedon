@@ -77,6 +77,6 @@ load-libc-symbols
 Timespec Fixnum is
 : alloc-timespec 16 alloc ; ![ -- Timespec ]
 : allot-timespec here 16 allot ; ![ -- Timespec ]
-: nanosleep 35 syscall2 Int.drop ; ![ Timespec Timespec -- ]
+: nanosleep 35 syscall2 Fixnum.drop ; ![ Timespec Timespec -- ]
 : >>sec swap u32! ; ![ Timespec Int -- Timespec ]
 : >>nsec swap 8 p+ u32! ; ![ Timespec Int -- Timespec ]

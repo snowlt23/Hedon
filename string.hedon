@@ -30,7 +30,7 @@ lentable String.lent StringU String
 : String.len cell p+ ; ![ String -- Pointer ]
 : String.data cell cell + p+ ; ![ String -- Cstr ]
 : String.dup Int.dup ; ![ String -- String String ] impl dup
-: String.drop Int.drop ; ![ String -- ] impl drop
+: String.drop Fixnum.drop ; ![ String -- ] impl drop
 : String.swap Int.swap ; ![ String String -- String String ] impl swap
 
 : length String.len @ ;
@@ -47,7 +47,7 @@ lentable String.lent StringU String
 : string length-cstr dup strlen new-string [ String.data swap strcpy ] keep [ String.len ! ] keep ;
 : .ss String.data .s ;
 
-: copy-and-seek Cstr.dup strlen [ [ strcpy ] 2keep Cstr.drop ] dip s+ ;
+: copy-and-seek dup strlen [ [ strcpy ] 2keep drop ] dip s+ ;
 : 2length [ length ] bi@ + ;
 : alloc-2string 2length new-string ;
 : 2copy-string swap copy-and-seek swap copy-and-seek drop ;

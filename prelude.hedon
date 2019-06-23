@@ -29,10 +29,10 @@ Type Fixnum is
 
 : grow [ 0x48 0x83 0xeb 0x08 ] X ; ![ -- Int ]
 : Fixnum.drop [ 0x48 0x83 0xc3 0x08 ] X ; ![ Fixnum ] impl drop
-: Int.drop [ 0x48 0x83 0xc3 0x08 ] X ; ![ Int ] impl drop
-: Cstr.drop Int.drop ; ![ Cstr ] impl drop
-: Pointer.drop Int.drop ; ![ Pointer ] impl drop
-: Type.drop [ 0x48 0x83 0xc3 0x08 ] X ; ![ Type ] impl drop
+: Int.drop Fixnum.drop ; ![ Int ]
+: Pointer.drop Fixnum.drop ; ![ Pointer ]
+: Cstr.drop Fixnum.drop ; ![ Cstr ]
+
 : >rax [ 0x48 0x8b 0x03 ] X Int.drop ;
 : >rcx [ 0x48 0x8b 0x0b ] X Int.drop ;
 : >rdx [ 0x48 0x8b 0x13 ] X Int.drop ;
@@ -45,6 +45,7 @@ Type Fixnum is
 : rax> grow [ 0x48 0x89 0x03 ] X ;
 : rcx> grow [ 0x48 0x89 0x0b ] X ;
 : rdx> grow [ 0x48 0x89 0x13 ] X ;
+
 : Int.dup >rax grow rax> ; impl dup
 : Cstr.dup Int.dup ; ![ Cstr -- Cstr Cstr ] impl dup
 : Bool.dup Int.dup ; ![ Bool -- Bool Bool ] impl dup
@@ -147,7 +148,7 @@ Type Fixnum is
   Fixnum eff.push eff.push eff.push Fixnum eff.push
 ;
 : pick3 sp@ cell cell + cell + p+ @ ; eff.attach pick3.eff
-: +! dup @ Int.pick3 + Pointer.Int.swap ! Int.drop ;
+: +! dup @ Int.pick3 + Pointer.Int.swap ! Fixnum.drop ;
 : 1+ 1 + ;
 
 : cp builtin.cp ; ![ -- Pointer ]
@@ -159,4 +160,4 @@ rem syscalls
 : syscall1 >rax >rdi write-syscall rax> ;
 : syscall2 >rax >rsi >rdi write-syscall rax> ;
 : syscall3 >rax >rdx >rsi >rdi write-syscall rax> ;
-: exit 60 syscall1 Int.drop ;
+: exit 60 syscall1 Fixnum.drop ;

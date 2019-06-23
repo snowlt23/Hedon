@@ -2,15 +2,15 @@
 : FileMode newtype ;
 
 : open-file 0 2 syscall3 dup 0 < ; ![ Cstr FileMode -- File Int ]
-: close-file 3 syscall1 Int.drop ; ![ File -- ]
+: close-file 3 syscall1 Fixnum.drop ; ![ File -- ]
 : File.drop close-file ; impl drop
 : File.dup.unsafe dup ; ![ File -- File File ]
 
 : r/o 0 ; ![ -- FileMode ]
 : w/o 1 ; ![ -- FileMode ]
 : r/w 2 ; ![ -- FileMode ]
-: read.unsafe 0 syscall3 Int.drop ; ![ File Pointer Int -- ]
-: write.unsafe 1 syscall3 Int.drop ; ![ File Pointer Int -- ]
+: read.unsafe 0 syscall3 Fixnum.drop ; ![ File Pointer Int -- ]
+: write.unsafe 1 syscall3 Fixnum.drop ; ![ File Pointer Int -- ]
 : read [ File.dup.unsafe ] 2dip read.unsafe ;
 : write [ File.dup.unsafe ] 2dip write.unsafe ;
 
