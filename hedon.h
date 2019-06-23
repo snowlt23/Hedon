@@ -20,9 +20,6 @@
   #define jit_memfree(p, size) munmap(p, size)
 #endif
 
-#define debug(...) {fprintf(stderr, "L%d: ", __LINE__); fprintf(stderr, __VA_ARGS__); fprintf(stderr, "\n");}
-#define ierror(...) {fprintf(stderr, __VA_ARGS__); exit(1);}
-
 #define CELLSIZE 8
 #define DEFAULT_STACKSIZE (CELLSIZE*1024)
 
@@ -178,7 +175,9 @@ extern Stack* comp_typeout;
 // utils.c
 char* vformat(char* fmt, va_list ap);
 char* format(char* fmt, ...);
+void ierror(char* fmt, ...);
 void error(char* fmt, ...);
+#define debug(...) {fprintf(stderr, "L%d: ", __LINE__); fprintf(stderr, __VA_ARGS__); fprintf(stderr, "\n");}
 
 // ffi.s
 void call_word_asm(uint8_t** spp, uint8_t* wp);
@@ -242,6 +241,14 @@ Def* solve_trait_word(Stack* defs);
 void init_codegen();
 void spill_codestate();
 void restore_codestate();
+// emit to .text
+void write_to_cp(uint8_t* buf, size_t n);
+void write_lendian(size_t x, int n);
+void write_qword(size_t x);
+void write_call_builtin(void* p);
+void write_stack_increment(int inc);
+cell* write_x(cell x);
+void write_call_word(size_t x);
 
 // primitives.c
 bool eval_builtinwords(Token* token);
@@ -251,16 +258,13 @@ bool is_trait(Def* def);
 Token* new_token(TokenKind kind);
 Token* new_token_name(char* name);
 Token* new_token_quot(Stack* s);
-void write_call_builtin(void* p);
-void write_stack_increment(int inc);
-cell* write_x(cell x);
+
 char bgetc();
 Def* new_def();
 Token* parse_quot();
 Vocab* new_vocab(char* name);
 Vocab* last_vocab();
 void add_def(Def* def);
-void write_to_cp(uint8_t* buf, size_t n);
 void push_x(cell x);
 cell pop_x();
 void imm_push_type(Type* t);

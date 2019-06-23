@@ -14,6 +14,15 @@ char* format(char* fmt, ...) {
   return s;
 }
 
+void ierror(char* fmt, ...) {
+  va_list ap;
+  va_start(ap, fmt);
+  char* s = vformat(fmt, ap);
+  va_end(ap);
+  fprintf(stderr, "internal error: %s", s);
+  exit(1);
+}
+
 void error(char* fmt, ...) {
   va_list ap;
   va_start(ap, fmt);
