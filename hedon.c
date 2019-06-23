@@ -1,91 +1,13 @@
 #include "hedon.h"
 
-char* buffer;
 uint8_t* dp;
-uint8_t* cp;
 Stack* data;
 bool state;
 bool codestate;
+// currently quotation in global
 Token* intoken;
 Stack* inquot;
 cell quotpos;
-Vocab* globaldefs;
-Stack* searchlist;
-Stack* definitions;
-
-//
-// Token
-//
-
-Token* new_token(TokenKind kind) {
-  Token* t = malloc(sizeof(Token));
-  t->kind = kind;
-  return t;
-}
-
-Token* new_token_name(char* name) {
-  Token* t = new_token(TOKEN_NAME);
-  t->name = name;
-  return t;
-}
-
-Token* new_token_quot(Stack* s) {
-  Token* t = new_token(TOKEN_QUOT);
-  t->quot = s;
-  return t;
-}
-
-//
-// Definitions
-//
-
-Def* new_def() {
-  Def* def = malloc(sizeof(Def));
-  def->effects = new_stack();
-  def->immediate = NULL;
-  def->traitwords = NULL;
-  def->polymorphic = false;
-  return def;
-}
-
-bool is_trait(Def* def) {
-  return def->traitwords != NULL;
-}
-
-Def* search_def(char* s) {
-  for (int i=stacklen(searchlist)-1; i>=0; i--) {
-    Vocab* v = get(searchlist, i);
-    for (int j=stacklen(v->words)-1; j>=0; j--) {
-      Def* def = get(v->words, j);
-      if (strcmp(def->name, s) == 0) return def;
-    }
-  }
-  return NULL;
-}
-
-Def* last_def() {
-  Vocab* v = get(searchlist, stacklen(searchlist)-1);
-  return get(v->words, stacklen(v->words)-1);
-}
-
-//
-// Vocabulary
-//
-
-Vocab* new_vocab(char* name) {
-  Vocab* v = malloc(sizeof(Vocab));
-  strncpy(v->name, name, 256);
-  v->words = new_stack(CELLSIZE);
-  return v;
-}
-
-Vocab* last_vocab() {
-  return get(searchlist, stacklen(searchlist)-1);
-}
-
-void add_def(Def* def) {
-  push(last_vocab()->words, def);
-}
 
 //
 // interpret semantics
@@ -105,68 +27,6 @@ void call_word(uint8_t* wp) {
 //
 // interpreter
 //
-
-char bgetc() {
-  char c = *buffer;
-  buffer++;
-  return c;
-}
-void bungetc() {
-  buffer--;
-}
-
-void skip_spaces() {
-  for (;;) {
-    char c = bgetc();
-    if (c == ' ' || c == '\n' || c == '\r' || c == '\t') continue;
-    bungetc();
-    break;
-  }
-}
-
-Token* parse_name() {
-  skip_spaces();
-  char token[256] = {};
-  int i;
-  bool instrlit = false;
-  for (i=0; ; i++) {
-    if (i >= 256-1) error("hedon word length should be <256.");
-    char c = bgetc();
-    if (c == ' ' && !instrlit) break;
-    if (c == '\n' || c == '\r' || c == '\t' || c == '\0' || c == EOF) break;
-    if (c == '"') instrlit = !instrlit;
-    token[i] = c;
-  }
-  if (strlen(token) == 0) return NULL;
-  return new_token_name(strdup(token));
-}
-
-Token* parse_quot() {
-  Stack* s = new_stack();
-  for (;;) {
-    Token* t = parse_token();
-    if (t->kind == TOKEN_NAME && strcmp(t->name, ";") == 0) break;
-    if (t->kind == TOKEN_NAME && strcmp(t->name, "]") == 0) break;
-    push(s, t);
-  }
-  return new_token_quot(s);
-}
-
-Token* parse_rem() {
-  for (;;) {
-    char c = bgetc();
-    if (c == '\n') break;
-  }
-  return NULL;
-}
-
-Token* parse_token() {
-  Token* t = parse_name();
-  if (t == NULL) return NULL;
-  BUILTIN_PARSE_WORD("[", parse_quot);
-  BUILTIN_PARSE_WORD("rem", parse_rem);
-  return t;
-}
 
 void expand_word(Def* def) {
   eval_quot(def->quot->quot);
@@ -319,41 +179,23 @@ void imm_eval_token(Token* t) {
 // main
 //
 
-void startup(size_t buffersize, size_t dpsize, size_t cpsize, size_t datasize) {
-  buffer = malloc(buffersize);
-  dp = (uint8_t*)jit_memalloc(dpsize);
-  cp = (uint8_t*)jit_memalloc(cpsize);
-  data = new_stack_cap(datasize);
+void startup() {
+  dp = (uint8_t*)jit_memalloc(DEFAULT_DATA_SIZE);
+  data = new_stack_cap(DEFAULT_STACK_SIZE);
   state = false;
   codestate = true;
   quotpos = -1;
 
   init_typesystem();
   init_codegen();
-
-  globaldefs = new_vocab("globals");
-  searchlist = new_stack();
-  definitions = new_stack();
-  push(searchlist, globaldefs);
-  push(definitions, globaldefs);
-}
-
-void read_buffer(FILE* f) {
-  char* bufferstart = buffer;
-  for (;;) {
-    char c = fgetc(f);
-    if (c == EOF) break;
-    *buffer = c;
-    buffer++;
-  }
-  *buffer = '\0';
-  buffer = bufferstart;
+  init_definitions();
+  init_parser();
 }
 
 void eval_file(FILE* f) {
   char* tmpbuf = buffer;
   buffer = malloc(1024*1024);
-  read_buffer(f);
+  read_to_buffer(f);
   for (;;) {
     Token* t = parse_token();
     if (t == NULL) break;
@@ -380,26 +222,29 @@ void load_core() {
   eval_file_path("record.hedon");
 }
 
-int main(int argc, char** argv) {
-  startup(1024*1024, 1024*1024, 1024*1024, 1024*1024);
-
-  load_core();
-
+void process_cmdline(int argc, char** argv) {
   for (int i=1; i<argc; i++) {
     if (strcmp(argv[i], "-l") == 0) {
       i++;
       if (i >= argc) ierror("require filename argument by -l option");
       eval_file_path(argv[i]);
     } else if (strcmp(argv[i], "-c") == 0) {
-      return 0;
+      exit(0);
     } else if (argv[i][0] == '-') {
       ierror("unknown cmdline argument: %s", argv[i]);
     } else {
       eval_file_path(argv[i]);
     }
   }
+}
 
-  read_buffer(stdin);
+int main(int argc, char** argv) {
+  startup();
+
+  load_core();
+  process_cmdline(argc, argv);
+
+  read_to_buffer(stdin);
   for (;;) {
     Token* t = parse_token();
     if (t == NULL) break;

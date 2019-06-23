@@ -9,7 +9,7 @@ Stack* new_stack_cap(size_t size) {
 }
 
 Stack* new_stack() {
-  return new_stack_cap(DEFAULT_STACKSIZE);
+  return new_stack_cap(DEFAULT_STACK_SIZE);
 }
 
 Stack* dup_stack(Stack* s) {

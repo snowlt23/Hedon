@@ -1,4 +1,4 @@
-OBJS=utils.o stack.o typeapi.o typesystem.o codegen.o primitives.o
+OBJS=utils.o stack.o typeapi.o typesystem.o codegen.o definitions.o primitives.o parser.o
 
 build: hedon ;
 

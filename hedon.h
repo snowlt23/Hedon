@@ -21,7 +21,10 @@
 #endif
 
 #define CELLSIZE 8
-#define DEFAULT_STACKSIZE (CELLSIZE*1024)
+#define DEFAULT_STACK_SIZE (CELLSIZE*1024)
+#define DEFAULT_TEXT_SIZE (1024*1024)
+#define DEFAULT_DATA_SIZE (1024*1024)
+#define DEFAULT_BUFFER_SIZE (1024*1024)
 
 #define CONCAT(a, b) a ## b
 #define write_hex2(id, ...) \
@@ -149,24 +152,30 @@ typedef struct {
 //
 
 // hedon.c
-extern char* buffer;
 extern uint8_t* dp;
-extern uint8_t* cp;
 extern Stack* data;
 extern bool state;
 extern bool codestate;
 extern Token* intoken;
 extern Stack* inquot;
 extern cell quotpos;
-extern Vocab* globaldefs;
-extern Stack* searchlist;
-extern Stack* definitions;
 
 // typesystem.c
 extern Stack* imm_typein;
 extern Stack* imm_typeout;
 extern Stack* comp_typein;
 extern Stack* comp_typeout;
+
+// codegen.c
+extern uint8_t* cp;
+
+// definitions.c
+extern Vocab* globaldefs;
+extern Stack* searchlist;
+extern Stack* definitions;
+
+// parser.c
+extern char* buffer;
 
 //
 // prototypes
@@ -250,37 +259,48 @@ void write_stack_increment(int inc);
 cell* write_x(cell x);
 void write_call_word(size_t x);
 
+// definitions.c
+void init_definitions();
+Def* new_def();
+Def* search_def(char* name);
+void add_def(Def* def);
+Def* last_def();
+bool is_trait(Def* def);
+// for vocab
+Vocab* new_vocab(char* name);
+Vocab* last_vocab();
+
 // primitives.c
 bool eval_builtinwords(Token* token);
 
-// hedon.c
-bool is_trait(Def* def);
+// parser.c
+// for Token
 Token* new_token(TokenKind kind);
 Token* new_token_name(char* name);
 Token* new_token_quot(Stack* s);
-
+// parser
+void init_parser();
+void read_to_buffer(FILE* f);
+Token* new_token(TokenKind kind);
+Token* new_token_name(char* name);
+Token* new_token_quot(Stack* s);
 char bgetc();
-Def* new_def();
 Token* parse_quot();
-Vocab* new_vocab(char* name);
-Vocab* last_vocab();
-void add_def(Def* def);
+Token* parse_token();
+
+// hedon.c
 void push_x(cell x);
 cell pop_x();
-void imm_push_type(Type* t);
-void imm_apply_effects(Def* def);
 void call_word(uint8_t* wp);
-Def* last_def();
-Token* parse_token();
-Def* search_def(char* name);
-void print_quot(Stack* q);
-void print_token(Token* t);
-char* format_typestack(Stack* s);
-void dump_typestack(FILE* f, Stack* s);
 void typing_quot(Stack* t);
 void codegen_quot(Stack* t);
 void eval_quot(Stack* t);
 void eval_token(Token* t);
 void imm_eval_token(Token* t);
+// printer
+void print_quot(Stack* q);
+void print_token(Token* t);
+char* format_typestack(Stack* s);
+void dump_typestack(FILE* f, Stack* s);
 
 #endif

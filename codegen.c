@@ -1,8 +1,18 @@
 #include "hedon.h"
 
+//
+// globals
+//
+
+uint8_t* cp;
 Stack* gspill_codestate;
 
+//
+// initialize
+//
+
 void init_codegen() {
+  cp = (uint8_t*)jit_memalloc(DEFAULT_TEXT_SIZE);
   gspill_codestate = new_stack();
 }
 
