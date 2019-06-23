@@ -26,6 +26,9 @@
 #define DEFAULT_DATA_SIZE (1024*1024)
 #define DEFAULT_BUFFER_SIZE (1024*1024)
 
+#define FLAG_IMM 0b01
+#define FLAG_BUILTIN 0b10
+
 #define CONCAT(a, b) a ## b
 #define write_hex2(id, ...) \
   uint8_t id[] = {__VA_ARGS__}; \
@@ -35,41 +38,29 @@
 
 #define take_byte(x, n) ((x >> (8*n)) & 0xff)
 
-#define IN_FOR(arr) for (cell i=(cell)(sizeof(arr)/sizeof(char*))-1; i>=0; i--)
-#define OUT_FOR(arr) for (cell i=0; i<(cell)(sizeof(arr)/sizeof(char*)); i++)
-#define BUILTIN_EFF(arr, d, kind, fr, ...) \
-  Def* d = last_def(); \
+#define EFF_TYPES2(arr, ret, len, kind, ...) \
   char* arr[] = {__VA_ARGS__}; \
-  fr { \
-    Def* eff = search_def(arr[i]); \
-    if (eff == NULL) error("undefined %s eff-word", arr[i]); \
-    call_word(eff->wp); \
-    apply_effects(eff); \
-    if (kind == EFF_IMM) continue; \
-    global_pop_type(type_type()); \
-    Type* t = (Type*)pop_x(); \
-    if (kind == EFF_IN) global_pop_type(t); \
-    else global_push_type(t); \
-    push(d->effects, new_eff(eff, kind)); \
+  len += sizeof(arr)/sizeof(char*); \
+  eff_types(ret, kind, sizeof(arr)/sizeof(char*), arr);
+#define EFF_TYPES1(ln, ret, len, kind, ...) EFF_TYPES2(CONCAT(tmptypes ## kind, ln), ret, len, kind, __VA_ARGS__)
+#define EFF_TYPES(ret, len, kind, ...) EFF_TYPES1(__LINE__, ret, len, kind, __VA_ARGS__)
+#define IN_EFF(...) EFF_TYPES(effs, len, EFF_IN, __VA_ARGS__); effs=rev_stack(effs); len=-len;
+#define OUT_EFF(...) EFF_TYPES(effs, len, EFF_OUT, __VA_ARGS__);
+
+#define STARTUP_WORD(name, flags, fnp, depth, tdecl) \
+  { \
+    Stack* effs = new_stack(); \
+    tdecl \
+    builtin_word(name, flags, fnp, depth, effs); \
   }
-#define IN_EFF(...) BUILTIN_EFF(inarr, indef, EFF_IN, IN_FOR(inarr), __VA_ARGS__)
-#define OUT_EFF(...) BUILTIN_EFF(outarr, outdef, EFF_OUT, OUT_FOR(outarr), __VA_ARGS__)
-#define BUILTIN_WORD(s, f, stackinc, tdecl) \
-  if (strcmp(token->name, s) == 0) { \
-    tdecl; \
-    if (state) { \
-      write_call_builtin(f); \
-      write_stack_increment(stackinc); \
-    } else { \
-      f(); \
-    } \
-    return true; \
+#define BUILTIN_WORD(name, flags, fnp, tdecl) \
+  { \
+    Stack* effs = new_stack(); \
+    int len = 0; \
+    tdecl \
+    builtin_word(name, flags, fnp, len, effs); \
   }
-#define BUILTIN_IMM_WORD(s, f) \
-  if (strcmp(token->name, s) == 0) { \
-    f(); \
-    return true; \
-  }
+
 #define BUILTIN_PARSE_WORD(s, f) \
   if (strcmp(t->name, s) == 0) { \
     t = f(); \
@@ -132,8 +123,9 @@ typedef struct _Def {
   Stack* effects;
   Stack* freezein;
   Stack* freezeout;
-  bool immediate;
+  size_t immediate;
   bool polymorphic;
+  cell deptheffect;
   Stack* traitwords;
 } Def;
 
@@ -223,6 +215,7 @@ bool is_polymorphic(Stack* s);
 bool is_in_polymorphic(Stack* s);
 Stack* freeze(Stack* s);
 EffSave* save_inout(Stack* in, Stack* out);
+void eff_types(Stack* effs, EffKind kind, int n, char** arr);
 
 // typesystem.c
 void init_typesystem();
@@ -271,7 +264,8 @@ Vocab* new_vocab(char* name);
 Vocab* last_vocab();
 
 // primitives.c
-bool eval_builtinwords(Token* token);
+void load_startup_words();
+void load_builtin_words();
 
 // parser.c
 // for Token

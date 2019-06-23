@@ -152,3 +152,10 @@ EffSave* save_inout(Stack* in, Stack* out) {
   return save;
 }
 
+void eff_types(Stack* effs, EffKind kind, int n, char** arr) {
+  for (int i=0; i<n; i++) {
+    Def* eff = search_def(arr[i]);
+    if (eff == NULL) ierror("undefined %s eff-word", arr[i]);
+    push(effs, new_eff(eff, kind));
+  }
+}

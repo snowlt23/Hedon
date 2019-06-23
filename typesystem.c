@@ -137,6 +137,7 @@ void apply_effects(Def* def) {
     apply_effects(eff->def);
     restore_codestate();
     call_word(eff->def->wp);
+    // imm_eval_def(eff->def); // FIXME:
     if (eff->kind == EFF_IMM) continue;
     global_pop_type(typet);
     Type* t = (Type*)pop_x();

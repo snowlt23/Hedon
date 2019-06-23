@@ -1,26 +1,3 @@
-: b.Type builtin.Type builtin.Type.eff ;
-: Type builtin.Type ; ![ -- b.Type ]
-: eff.drop builtin.eff.drop ; ![ Type -- ]
-: eff.push builtin.eff.push ; ![ Type -- ]
-: eff.dup builtin.eff.dup ; ![ Type -- ]
-: newtype builtin.newtype Type eff.push ; immediate
-: paramtype builtin.paramtype Type eff.push ; immediate
-: uniontype builtin.uniontype Type eff.push ; immediate
-: a paramtype ;
-: b paramtype ;
-: c paramtype ;
-
-: Quot builtin.Quot ; ![ -- Type ]
-: Token newtype ;
-: Word newtype ;
-: Vocab newtype ;
-: Int builtin.Int ; ![ -- Type ]
-: Cstr builtin.Cstr ; ![ -- Type ]
-: Bool newtype ;
-: Pointer newtype ;
-: EffSave newtype ;
-: Eff newtype ;
-
 : Fixnum uniontype ;
 Int Fixnum is
 Cstr Fixnum is

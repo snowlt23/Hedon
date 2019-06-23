@@ -59,9 +59,18 @@ void eval_quot(Stack* s) {
 }
 
 void eval_def(Def* def) {
-  if (def->immediate) {
+  // builtins
+  if (def->immediate & FLAG_IMM && def->immediate & FLAG_BUILTIN) {
     imm_apply_effects(def);
-    call_word(def->wp);
+    ((void (*)())def->wp)();
+  } else if (def->immediate & FLAG_BUILTIN && state) {
+    apply_effects(def);
+    write_call_builtin(def->wp);
+    write_stack_increment(def->deptheffect*8);
+  } else if (def->immediate & FLAG_BUILTIN) {
+    imm_apply_effects(def);
+    ((void (*)())def->wp)();
+  // traits
   } else if (is_trait(def) && !state) {
     error("trait can't call on toplevel in currently"); // TODO: trait-call on toplevel
   } else if (is_trait(def) && !codestate) {
@@ -76,6 +85,10 @@ void eval_def(Def* def) {
     apply_effects(def);
   } else if (def->polymorphic) {
     expand_word(def);
+  // words
+  } else if (def->immediate & FLAG_IMM) {
+    imm_apply_effects(def);
+    call_word(def->wp);
   } else if (state) {
     apply_effects(def);
     write_call_word((size_t)def->wp);
@@ -163,8 +176,6 @@ void eval_token(Token* token) {
     return;
   }
 
-  if (eval_builtinwords(token)) return;
-
   error("undefined %s word", token->name);
 }
 
@@ -212,6 +223,9 @@ void eval_file_path(char* path) {
 }
 
 void load_core() {
+  load_startup_words();
+  eval_file_path("startup.hedon");
+  load_builtin_words();
   eval_file_path("prelude.hedon");
   eval_file_path("combinator.hedon");
   eval_file_path("cffi.hedon");

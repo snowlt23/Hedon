@@ -147,7 +147,7 @@ void word_eff_check() {
 
 void word_immediate() {
   Def* def = last_def();
-  def->immediate = true;
+  def->immediate |= FLAG_IMM;
 }
 
 void word_inline() {
@@ -550,94 +550,112 @@ void word_call6() {
   push_x((size_t)&call6);
 }
 
-bool eval_builtinwords(Token* token) {
+//
+// initialize
+//
+
+void builtin_word(char* name, cell flags, void* fnp, int depth, Stack* effs) {
+  Def* def = new_def();
+  add_def(def);
+  strcpy(def->name, name);
+  def->immediate = flags | FLAG_BUILTIN;
+  def->wp = fnp;
+  def->effects = effs;
+  def->quot = NULL;
+  def->polymorphic = true;
+  def->deptheffect = depth;
+}
+
+void load_startup_words() {
   // builtin for def
-  BUILTIN_WORD(":", word_def, 0, {});
-  BUILTIN_WORD("template:", word_template, 0, {});
-  BUILTIN_WORD("immediate", word_immediate, 0, {});
-  BUILTIN_WORD("inline", word_inline, 0, {});
-  BUILTIN_IMM_WORD("trait", word_trait);
-  BUILTIN_WORD("impl", word_impl, 0, {});
-  BUILTIN_IMM_WORD("![", word_force_effects);
-  BUILTIN_IMM_WORD("eff.attach", word_eff_attach);
-  BUILTIN_IMM_WORD("X", word_X);
+  BUILTIN_WORD(":", 0, word_def, {});
+  BUILTIN_WORD("template:", 0, word_template, {});
+  BUILTIN_WORD("immediate", 0, word_immediate, {});
+  BUILTIN_WORD("inline", 0, word_inline, {});
+  BUILTIN_WORD("trait", FLAG_IMM, word_trait, {});
+  BUILTIN_WORD("impl", 0, word_impl, {});
+  BUILTIN_WORD("![", FLAG_IMM, word_force_effects, {});
+  BUILTIN_WORD("eff.attach", FLAG_IMM, word_eff_attach, {});
+  BUILTIN_WORD("X", FLAG_IMM, word_X, {});
 
   // builtin for type def
-  BUILTIN_IMM_WORD("builtin.Type.eff", word_type_eff);
-  BUILTIN_WORD("builtin.Quot", word_quot, 8, {});
-  BUILTIN_WORD("builtin.Type", word_type, 8, {});
-  BUILTIN_WORD("builtin.Int", word_int, 8, {});
-  BUILTIN_WORD("builtin.Cstr", word_cstr, 8, {});
-  BUILTIN_WORD("builtin.newtype", word_newtype, 8, {});
-  BUILTIN_WORD("builtin.paramtype", word_paramtype, 8, {});
-  BUILTIN_WORD("builtin.uniontype", word_uniontype, 8, {});
-  BUILTIN_WORD("is", word_is, -16, {IN_EFF("Type", "Type")});
+  STARTUP_WORD("builtin.Type.eff", FLAG_IMM, word_type_eff, 0, {});
+  STARTUP_WORD("builtin.Quot", 0, word_quot, 1, {});
+  STARTUP_WORD("builtin.Type", 0, word_type, 1, {});
+  STARTUP_WORD("builtin.Int", 0, word_int, 1, {});
+  STARTUP_WORD("builtin.Cstr", 0, word_cstr, 1, {});
+  STARTUP_WORD("builtin.newtype", 0, word_newtype, 1, {});
+  STARTUP_WORD("builtin.paramtype", 0, word_paramtype, 1, {});
+  STARTUP_WORD("builtin.uniontype", 0, word_uniontype, 1, {});
 
   // effect words
-  BUILTIN_WORD("builtin.eff.push", word_eff_push, -8, {});
-  BUILTIN_WORD("builtin.eff.drop", word_eff_drop, -8, {});
-  BUILTIN_WORD("builtin.eff.dup", word_eff_dup, -8, {});
-  BUILTIN_WORD("builtin.eff.save-out", word_eff_save_out, 8, {});
-  BUILTIN_WORD("builtin.eff.load-out", word_eff_load_out, -8, {});
-  BUILTIN_WORD("builtin.eff.save", word_eff_save, 8, {});
-  BUILTIN_WORD("builtin.eff.load", word_eff_load, -8, {});
-  BUILTIN_WORD("builtin.eff.check", word_eff_check, -16, {});
+  STARTUP_WORD("builtin.eff.push", 0, word_eff_push, -1, {});
+  STARTUP_WORD("builtin.eff.drop", 0, word_eff_drop, -1, {});
+  STARTUP_WORD("builtin.eff.dup", 0, word_eff_dup, -1, {});
+  STARTUP_WORD("builtin.eff.save-out", 0, word_eff_save_out, 1, {});
+  STARTUP_WORD("builtin.eff.load-out", 0, word_eff_load_out, -1, {});
+  STARTUP_WORD("builtin.eff.save", 0, word_eff_save, 1, {});
+  STARTUP_WORD("builtin.eff.load", 0, word_eff_load, -1, {});
+  STARTUP_WORD("builtin.eff.check", 0, word_eff_check, -2, {});
+}
+
+void load_builtin_words() {
+  // type api
+  BUILTIN_WORD("is", 0, word_is, {IN_EFF("Type", "Type")});
 
   // word control
-  BUILTIN_WORD("parse-token", word_parse_token, 8, {OUT_EFF("Token")});
-  BUILTIN_WORD("token-name", word_token_name, 0, {IN_EFF("Token"); OUT_EFF("Cstr")});
+  BUILTIN_WORD("parse-token", 0, word_parse_token, {OUT_EFF("Token")});
+  BUILTIN_WORD("token-name", 0, word_token_name, {IN_EFF("Token"); OUT_EFF("Cstr")});
 
-  BUILTIN_WORD("search-word", word_search_word, 0, {IN_EFF("Cstr"); OUT_EFF("Word")});
-  BUILTIN_WORD("<word>", word_create_word, 0, {IN_EFF("Cstr"); OUT_EFF("Word")});
-  BUILTIN_WORD(">>code", word_set_code, -8, {IN_EFF("Word", "Quot"); OUT_EFF("Word")});
-  BUILTIN_WORD(">>impl", word_add_impl, -8, {IN_EFF("Word", "Cstr"); OUT_EFF("Word")});
-  BUILTIN_WORD(">>eff", word_set_eff, -8, {IN_EFF("Word", "Eff"); OUT_EFF("Word")});
-  BUILTIN_WORD(">vocab", word_add_to_vocab, -8, {IN_EFF("Word")});
-  BUILTIN_WORD("word-name>>", word_word_name, 8, {IN_EFF("Word"); OUT_EFF("Word", "Cstr")});
-  BUILTIN_WORD("as-type", word_as_type, 0, {IN_EFF("Word"); OUT_EFF("Type")});
+  BUILTIN_WORD("search-word", 0, word_search_word, {IN_EFF("Cstr"); OUT_EFF("Word")});
+  BUILTIN_WORD("<word>", 0, word_create_word, {IN_EFF("Cstr"); OUT_EFF("Word")});
+  BUILTIN_WORD(">>code", 0, word_set_code, {IN_EFF("Word", "Quot"); OUT_EFF("Word")});
+  BUILTIN_WORD(">>impl", 0, word_add_impl, {IN_EFF("Word", "Cstr"); OUT_EFF("Word")});
+  BUILTIN_WORD(">>eff", 0, word_set_eff, {IN_EFF("Word", "Eff"); OUT_EFF("Word")});
+  BUILTIN_WORD(">vocab", 0, word_add_to_vocab, {IN_EFF("Word")});
+  BUILTIN_WORD("word-name>>", 0, word_word_name, {IN_EFF("Word"); OUT_EFF("Word", "Cstr")});
+  BUILTIN_WORD("as-type", 0, word_as_type, {IN_EFF("Word"); OUT_EFF("Type")});
 
-  BUILTIN_WORD("<eff>", word_create_eff, 8, {OUT_EFF("Eff")});
-  BUILTIN_WORD(">>eff.in", word_add_effin, -8, {IN_EFF("Eff", "Word"); OUT_EFF("Eff")});
-  BUILTIN_WORD(">>eff.out", word_add_effout, -8, {IN_EFF("Eff", "Word"); OUT_EFF("Eff")});
+  BUILTIN_WORD("<eff>", 0, word_create_eff, {OUT_EFF("Eff")});
+  BUILTIN_WORD(">>eff.in", 0, word_add_effin, {IN_EFF("Eff", "Word"); OUT_EFF("Eff")});
+  BUILTIN_WORD(">>eff.out", 0, word_add_effout, {IN_EFF("Eff", "Word"); OUT_EFF("Eff")});
 
-  BUILTIN_WORD("<vocab>", word_create_vocab, 0, {IN_EFF("Cstr"); OUT_EFF("Vocab")});
-  BUILTIN_WORD(">>def", word_add_def, -8, {IN_EFF("Vocab", "Word"); OUT_EFF("Vocab")});
-  BUILTIN_WORD("also", word_also, -8, {IN_EFF("Vocab")});
-  BUILTIN_WORD("previous", word_previous, 8, {OUT_EFF("Vocab")});
-  BUILTIN_WORD("definitions", word_definitions, -8, {IN_EFF("Vocab")});
+  BUILTIN_WORD("<vocab>", 0, word_create_vocab, {IN_EFF("Cstr"); OUT_EFF("Vocab")});
+  BUILTIN_WORD(">>def", 0, word_add_def, {IN_EFF("Vocab", "Word"); OUT_EFF("Vocab")});
+  BUILTIN_WORD("also", 0, word_also, {IN_EFF("Vocab")});
+  BUILTIN_WORD("previous", 0, word_previous, {OUT_EFF("Vocab")});
+  BUILTIN_WORD("definitions", 0, word_definitions, {IN_EFF("Vocab")});
 
-  BUILTIN_WORD("builtin.dp", word_dp, 8, {OUT_EFF("Int")});
-  BUILTIN_WORD("builtin.cp", word_cp, 8, {OUT_EFF("Int")});
-  BUILTIN_WORD(".", word_dot, -8, {IN_EFF("Int")});
-  BUILTIN_WORD(".c", word_dotc, -8, {IN_EFF("Int")});
-  BUILTIN_WORD(".s", word_dots, -8, {IN_EFF("Cstr")});
-  BUILTIN_WORD(".q", word_dotq, -8, {IN_EFF("Quot")});
-  BUILTIN_WORD("cr", word_cr, 0, {});
+  BUILTIN_WORD("builtin.dp", 0, word_dp, {OUT_EFF("Int")});
+  BUILTIN_WORD("builtin.cp", 0, word_cp, {OUT_EFF("Int")});
+  BUILTIN_WORD(".", 0, word_dot, {IN_EFF("Int")});
+  BUILTIN_WORD(".c", 0, word_dotc, {IN_EFF("Int")});
+  BUILTIN_WORD(".s", 0, word_dots, {IN_EFF("Cstr")});
+  BUILTIN_WORD(".q", 0, word_dotq, {IN_EFF("Quot")});
+  BUILTIN_WORD("cr", 0, word_cr, {});
 
   // op
-  BUILTIN_WORD("op", word_op, -8, {IN_EFF("Int")});
-  BUILTIN_WORD("fixup-op", word_fixup_op, -16, {IN_EFF("Int", "Pointer")});
+  BUILTIN_WORD("op", 0, word_op, {IN_EFF("Int")});
+  BUILTIN_WORD("fixup-op", 0, word_fixup_op, {IN_EFF("Int", "Pointer")});
 
   // quot
-  BUILTIN_WORD("compile", word_compile, -8, {IN_EFF("Quot")});
-  BUILTIN_WORD("literal", word_literal, 0, {IN_EFF("Int"); OUT_EFF("Token")});
-  BUILTIN_WORD("quot->token", word_quot_to_token, 0, {IN_EFF("Quot"); OUT_EFF("Token")});
-  BUILTIN_WORD("quot", word_new_quot, 8, {OUT_EFF("Quot")});
-  BUILTIN_WORD("push", word_push, -16, {IN_EFF("Token", "Quot");});
-  BUILTIN_WORD("combine", word_combine, -8, {IN_EFF("Quot", "Quot"); OUT_EFF("Quot")});
-  BUILTIN_IMM_WORD("postquot", word_postquot);
-  BUILTIN_IMM_WORD("postcompile", word_postcompile);
+  BUILTIN_WORD("compile", 0, word_compile, {IN_EFF("Quot")});
+  BUILTIN_WORD("literal", 0, word_literal, {IN_EFF("Int"); OUT_EFF("Token")});
+  BUILTIN_WORD("quot->token", 0, word_quot_to_token, {IN_EFF("Quot"); OUT_EFF("Token")});
+  BUILTIN_WORD("quot", 0, word_new_quot, {OUT_EFF("Quot")});
+  BUILTIN_WORD("push", 0, word_push, {IN_EFF("Token", "Quot");});
+  BUILTIN_WORD("combine", 0, word_combine, {IN_EFF("Quot", "Quot"); OUT_EFF("Quot")});
+  BUILTIN_WORD("postquot", FLAG_IMM, word_postquot, {});
+  BUILTIN_WORD("postcompile", FLAG_IMM, word_postcompile, {});
 
   // dump
-  BUILTIN_WORD("dump-type", word_dump_type, 0, {});
+  BUILTIN_WORD("dump-type", 0, word_dump_type, {});
 
   // cffi
-  BUILTIN_WORD("builtin.c.dlopen", word_dlopen, 8, {OUT_EFF("Pointer")});
-  BUILTIN_WORD("builtin.c.dlsym", word_dlsym, 8, {OUT_EFF("Pointer")});
-  BUILTIN_WORD("builtin.c.dlclose", word_dlclose, 8, {OUT_EFF("Pointer")});
-  BUILTIN_WORD("builtin.test.call1", word_call1, 8, {OUT_EFF("Pointer")});
-  BUILTIN_WORD("builtin.test.call2", word_call2, 8, {OUT_EFF("Pointer")});
-  BUILTIN_WORD("builtin.test.call6", word_call6, 8, {OUT_EFF("Pointer")});
-
-  return false;
+  BUILTIN_WORD("builtin.c.dlopen", 0, word_dlopen, {OUT_EFF("Pointer")});
+  BUILTIN_WORD("builtin.c.dlsym", 0, word_dlsym, {OUT_EFF("Pointer")});
+  BUILTIN_WORD("builtin.c.dlclose", 0, word_dlclose, {OUT_EFF("Pointer")});
+  BUILTIN_WORD("builtin.test.call1", 0, word_call1, {OUT_EFF("Pointer")});
+  BUILTIN_WORD("builtin.test.call2", 0, word_call2, {OUT_EFF("Pointer")});
+  BUILTIN_WORD("builtin.test.call6", 0, word_call6, {OUT_EFF("Pointer")});
 }

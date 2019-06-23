@@ -19,7 +19,7 @@ void init_definitions() {
 Def* new_def() {
   Def* def = malloc(sizeof(Def));
   def->effects = new_stack();
-  def->immediate = NULL;
+  def->immediate = 0;
   def->traitwords = NULL;
   def->polymorphic = false;
   return def;
