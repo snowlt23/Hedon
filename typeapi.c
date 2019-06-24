@@ -58,22 +58,29 @@ Type* init_paramtype_ref(char* name, size_t id) {
   return init_reftype(init_paramtype(name, id));
 }
 
+Type* init_uniontype_ref(char* name, size_t id) {
+  return init_reftype(init_uniontype(name, id));
+}
+
+Type* type_origin(Type* t) {
+  if (t->kind == TYPE_REF) return type_origin(t->ref);
+  return t;
+}
+
 int typeid(Type* t) {
-  if (t->kind == TYPE_REF) return typeid(t->ref);
-  return t->id;
+  return type_origin(t)->id;
 }
 
 char* typename(Type* t) {
-  if (t->kind == TYPE_REF) return typename(t->ref);
-  return t->name;
+  return type_origin(t)->name;
 }
 
 bool eqtype(Type* a, Type* b) {
   if (typeid(a) == typeid(b)) return true;
-  if (a->kind == TYPE_PARAM) return true;
-  if (b->kind == TYPE_PARAM) return true;
   if (a->kind == TYPE_REF) return eqtype(a->ref, b);
   if (b->kind == TYPE_REF) return eqtype(a, b->ref);
+  if (a->kind == TYPE_PARAM) return true;
+  if (b->kind == TYPE_PARAM) return true;
   if (a->kind == TYPE_UNION) {
     for (size_t i=0; i<stacklen(a->types); i++) {
       if (eqtype(get(a->types, i), b)) return true;
@@ -116,13 +123,11 @@ Eff* new_eff(Def* def, EffKind kind) {
 }
 
 bool is_polytype(Type* t) {
-  if (t->kind == TYPE_REF) return is_polytype(t->ref);
-  return t->kind != TYPE_SINGLE;
+  return type_origin(t)->kind != TYPE_SINGLE;
 }
 
 bool is_in_polytype(Type* t) {
-  if (t->kind == TYPE_REF) return is_polytype(t->ref);
-  return t->kind != TYPE_SINGLE && t->kind != TYPE_UNION;
+  return type_origin(t)->kind != TYPE_SINGLE && type_origin(t)->kind != TYPE_UNION;
 }
 
 bool is_polymorphic(Stack* s) {

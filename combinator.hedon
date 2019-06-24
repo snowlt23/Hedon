@@ -13,7 +13,7 @@ rem dataflow
 : dip
   a dup eff.drop
   spill.unsafe drop.unsafe
-  Quot.Type.swap compile
+  swap compile
   grow.unsafe restore.unsafe
   eff.push
 ; immediate
@@ -22,7 +22,7 @@ rem dataflow
   b dup eff.drop
   spill.unsafe drop.unsafe
   spill.unsafe drop.unsafe
-  [ Quot.Type.swap compile ] dip
+  [ swap compile ] dip
   grow.unsafe restore.unsafe
   grow.unsafe restore.unsafe
   eff.push
@@ -35,7 +35,7 @@ rem dataflow
   spill.unsafe drop.unsafe
   spill.unsafe drop.unsafe
   spill.unsafe drop.unsafe
-  [ Quot.Type.swap compile ] 2dip
+  [ swap compile ] 2dip
   grow.unsafe restore.unsafe
   grow.unsafe restore.unsafe
   grow.unsafe restore.unsafe
@@ -46,7 +46,7 @@ rem dataflow
 : keep
   a dup eff.drop dup eff.push
   spill.unsafe
-  Quot.Type.swap compile
+  swap compile
   grow.unsafe restore.unsafe
   eff.push
 ; immediate
@@ -63,21 +63,21 @@ rem dataflow
   eff.push
 ; immediate
 : bi
-  Quot.swap
+  swap
   a dup eff.drop
   dup eff.push
   spill.unsafe
-  Quot.Type.swap compile
+  swap compile
   dup eff.push
   grow.unsafe restore.unsafe
-  Quot.Type.swap compile
+  swap compile
   drop
 ; immediate
 
 rem op
 
-: take-byte shr 0xff band ;
-: fixup-byte take-byte Pointer.Int.swap fixup-op ;
+: take-byte shr 0xff and ;
+: fixup-byte take-byte swap fixup-op ;
 : next-byte [ 1 p+ ] dip ;
 : fixup-lendian32
   [ 0 fixup-byte ] 2keep next-byte
@@ -103,7 +103,7 @@ rem op
   56 take-byte op
 ;
 
-: get-rel cp @ Int.swap - ;
+: get-rel cp @ swap - ;
 : fixup-to-end 4 p+ to-int ;
 : fixup-by-here dup fixup-to-end get-rel fixup-lendian32 ;
 : write-to-here to-int cp@ fixup-to-end - op-lendian32 ;
@@ -117,6 +117,7 @@ rem meta
 : , here ! cell allot ;
 : pointer ; ![ -- Pointer ]
 : token-to-quot quot dup [ push ] dip ;
+
 : var
   parse-token token-name <word>
     dp @ literal token-to-quot 0 , >>code
@@ -145,7 +146,7 @@ rem controlflow
 ;
 : if
   Bool eff.drop
-  Quot.swap
+  swap
   eff.save
   [ write-else ] dip
   eff.save [ eff.load ] dip
@@ -169,10 +170,10 @@ rem controlflow
 ;
 : while
   cp@
-  [ Quot.swap compile ] dip
+  [ swap compile ] dip
   Bool eff.drop
   write-while
   [ compile ] 2dip 0xe9 op
-  Pointer.swap write-to-here
+  swap write-to-here
   fixup-by-here
 ; immediate

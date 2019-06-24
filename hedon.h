@@ -202,6 +202,8 @@ Type* init_paramtype(char* name, size_t id);
 Type* init_uniontype(char* name, size_t id);
 Type* init_reftype(Type* ref);
 Type* init_paramtype_ref(char* name, size_t id);
+Type* init_uniontype_ref(char* name, size_t id);
+Type* type_origin(Type* t);
 int typeid(Type* t);
 char* typename(Type* t);
 bool eqtype(Type* a, Type* b);

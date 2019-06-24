@@ -4,6 +4,10 @@ Cstr Fixnum is
 Bool Fixnum is
 Pointer Fixnum is
 Type Fixnum is
+Quot Fixnum is
+Token Fixnum is
+Word Fixnum is
+EffSave Fixnum is
 
 : eff.save-out builtin.eff.save-out ; ![ -- EffSave ]
 : eff.load-out builtin.eff.load-out ; ![ EffSave -- ]
@@ -28,7 +32,9 @@ Type Fixnum is
 : dup trait ; eff.attach dup.eff
 
 : grow [ 0x48 0x83 0xeb 0x08 ] X ; ![ -- Int ]
-: Fixnum.drop [ 0x48 0x83 0xc3 0x08 ] X ; ![ Fixnum ] impl drop
+rem : Fixnum.drop [ 0x48 0x83 0xc3 0x08 ] X ; ![ Fixnum ] impl drop
+: Fixnum.drop.eff Fixnum eff.drop ;
+: Fixnum.drop [ 0x48 0x83 0xc3 0x08 ] X ; eff.attach Fixnum.drop.eff impl drop
 : Int.drop Fixnum.drop ; ![ Int ]
 : Pointer.drop Fixnum.drop ; ![ Pointer ]
 : Cstr.drop Fixnum.drop ; ![ Cstr ]
@@ -46,38 +52,15 @@ Type Fixnum is
 : rcx> grow [ 0x48 0x89 0x0b ] X ;
 : rdx> grow [ 0x48 0x89 0x13 ] X ;
 
-: Int.dup >rax grow rax> ; impl dup
-: Cstr.dup Int.dup ; ![ Cstr -- Cstr Cstr ] impl dup
-: Bool.dup Int.dup ; ![ Bool -- Bool Bool ] impl dup
-: Type.dup Int.dup ; ![ Type -- Type Type ] impl dup
-: Pointer.dup Int.dup ; ![ Pointer -- Pointer Pointer ] impl dup
-: Quot.dup Int.dup ; ![ Quot -- Quot Quot ] impl dup
-: Token.dup Int.dup ; ![ Token -- Token Token ] impl dup
-: EffSave.dup Int.dup ; ![ EffSave -- EffSave EffSave ] impl dup
-: prim.Int.swap >rax >rcx rax> rcx> ;
-: prim.Type.swap prim.Int.swap ; ![ Type Type -- Type Type ]
+: Type.dup >rax grow rax> ; ![ Type -- Type Type ]
+: Fixnum.dup.eff Fixnum Type.dup eff.drop Type.dup eff.push eff.push ;
+: Fixnum.dup >rax grow rax> ; eff.attach Fixnum.dup.eff impl dup
 
-: lent.eff a dup eff.drop eff.push b eff.push ;
-: lent trait ; eff.attach lent.eff
-: swap.eff a dup eff.drop b dup eff.drop prim.Type.swap eff.push eff.push ;
+: Type.swap >rax >rcx rax> rcx> ; ![ Type Type -- Type Type ]
+: swap.eff a dup eff.drop b dup eff.drop Type.swap eff.push eff.push ;
 : swap trait ; eff.attach swap.eff
-
-: Int.swap prim.Int.swap ; impl swap
-: Type.swap prim.Type.swap ; impl swap
-: Cstr.swap Int.swap ; ![ Cstr Cstr -- Cstr Cstr ] impl swap
-: Cstr.Int.swap Int.swap ; ![ Cstr Int -- Int Cstr ] impl swap
-: Int.CStr.swap Int.swap ; ![ Int Cstr -- Cstr Int ] impl swap
-: Pointer.Cstr.swap Int.swap ; ![ Pointer Cstr -- Cstr Pointer ] impl swap
-: Cstr.Pointer.swap Int.swap ; ![ Cstr Pointer -- Pointer Cstr ] impl swap
-: Pointer.swap Int.swap ; ![ Pointer Pointer -- Pointer Pointer ] impl swap
-: Pointer.Int.swap Int.swap ; ![ Pointer Int -- Int Pointer ] impl swap
-: Int.Pointer.swap Int.swap ; ![ Int Pointer -- Pointer Int ] impl swap
-: Quot.swap Int.swap ; ![ Quot Quot -- Quot Quot ] impl swap
-: Quot.Token.Int.swap ; ![ Quot Token -- Token Quot ] impl swap
-: Token.Quot.Int.swap ; ![ Token Quot -- Quot Token ] impl swap
-: Quot.Type.swap Int.swap ; ![ Quot Type -- Type Quot ] impl swap
-: Word.Eff.swap Int.swap ; ![ Word Eff -- Eff Word ] impl swap
-: Eff.Word.swap Int.swap ; ![ Eff Word -- Word Eff ] impl swap
+: Fixnum.swap.eff Fixnum dup eff.drop Fixnum dup eff.drop Type.swap eff.push eff.push ;
+: Fixnum.swap >rax >rcx rax> rcx> ; eff.attach Fixnum.swap.eff impl swap
 
 : + >rcx >rax [ 0x48 0x01 0xc8 ] X rax> ;
 : - >rcx >rax [ 0x48 0x29 0xc8 ] X rax> ;
@@ -108,20 +91,18 @@ Type Fixnum is
 
 : shl >rcx >rax [ 0x48 0xd3 0xe0 ] X rax> ;
 : shr >rcx >rax [ 0x48 0xd3 0xe8 ] X rax> ;
-: bor >rcx >rax [ 0x48 0x09 0xc8 ] X rax> ;
-: band >rcx >rax [ 0x48 0x21 0xc8 ] X rax> ;
+: or >rcx >rax [ 0x48 0x09 0xc8 ] X rax> ;
+: and >rcx >rax [ 0x48 0x21 0xc8 ] X rax> ;
 : xor >rcx >rax [ 0x48 0x31 0xc8 ] X rax> ;
-: bnot >rax [ 0x48 0xf7 0xd0 ] X rax> ;
+: not >rax [ 0x48 0xf7 0xd0 ] X rax> ;
 
 : >rbx [ 0x48 0x8b 0x1b ] X ; ![ Int -- ]
 : rbx> grow [ 0x48 0x89 0x1b ] X ;
 : sp@ rbx> ; ![ -- Pointer ]
 : sp! >rbx ; ![ Pointer -- ]
 
-: band >rcx >rax [ 0x48 0x21 0xc8 ] X rax> ;
-: shr >rcx >rax [ 0x48 0xd3 0xe8 ] X rax> ;
 : @ >rax [ 0x48 0x8b 0x00 ] X rax> ; ![ Pointer -- Int ]
-: u64-to-u32 0xffffffff band ;
+: u64-to-u32 0xffffffff and ;
 : u32@ >rax [ 0x8b 0x00 ] X rax> ; ![ Pointer -- Int ]
 : u32! >rax >rcx [ 0x89 0x08 ] X ; ![ Int Pointer -- ]
 : ! >rax >rcx [ 0x48 0x89 0x08 ] X ; ![ Int Pointer -- ]
@@ -148,7 +129,7 @@ Type Fixnum is
   Fixnum eff.push eff.push eff.push Fixnum eff.push
 ;
 : pick3 sp@ cell cell + cell + p+ @ ; eff.attach pick3.eff
-: +! dup @ Int.pick3 + Pointer.Int.swap ! Fixnum.drop ;
+: +! dup @ Int.pick3 + swap ! Int.drop ;
 : 1+ 1 + ;
 
 : cp builtin.cp ; ![ -- Pointer ]
@@ -160,4 +141,4 @@ rem syscalls
 : syscall1 >rax >rdi write-syscall rax> ;
 : syscall2 >rax >rsi >rdi write-syscall rax> ;
 : syscall3 >rax >rdx >rsi >rdi write-syscall rax> ;
-: exit 60 syscall1 Fixnum.drop ;
+: exit 60 syscall1 Int.drop ;

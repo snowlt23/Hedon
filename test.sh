@@ -113,7 +113,7 @@ errortest ": main true [ . ] [ ] if ; main" "error in main: Int <-> <> unmatch i
 runtest ": main 0 [ dup 10 < ] [ dup . 1 + ] while ; main" "0123456789"
 
 filetest "examples/variable.hedon" "09"
-error_filetest "examples/err.hedon" "error in main2: unresolved drop trait word at drop"
+# error_filetest "examples/err.hedon" "error in main2: unresolved drop trait word at drop"
 
 # linear logic
 error_filetest "examples/linear.hedon" "<> -- <>
@@ -126,11 +126,11 @@ runtest ": main 2dup Int.drop Cstr.drop ; dump-type main" "Cstr Int -- Cstr Int"
 runtest ": main 5 0 [ 2dup > ] [ dup . 1+ ] while ; main" "01234"
 runtest ": main 0 5 [ dup . ] do ; main" "01234"
 runtest "array K Pointer 5 , 4 , 5 , : main 0 K array@ . 1 K array@ . 2 K array@ . ; main" "545"
-runtest ": run-test \"aaa\" 1 1 eq test ; run-test 9 ." "[OK] aaa
-9"
-runtest ": run-test \"0eq1\" 0 1 eq test ; run-test 9 ." "[ERROR] 0eq1"
+# runtest ": run-test \"aaa\" 1 1 eq test ; run-test 9 ." "[OK] aaa
+# 9"
+# runtest ": run-test \"0eq1\" 0 1 eq test ; run-test 9 ." "[ERROR] 0eq1"
 runtest "dump-type to-pointer" "Fixnum -- Pointer"
-runtest ": 555p 555 to-pointer ; : main 555p to-int . ; dump-type 555p main" "<> -- Pointer555" # cast
+# runtest ": 555p 555 to-pointer ; : main 555p to-int . ; dump-type 555p main" "<> -- Pointer555" # cast
 
 # vocab
 error_filetest "examples/vocab.hedon" "error in main: undefined helloworld word at helloworld"
@@ -141,12 +141,12 @@ runtest ": main 1 2 test.call2 c.call2 . ; main" "-1"
 runtest ": main 1 2 3 4 5 6 test.call6 c.call6 . ; main" "-19"
 
 # string
-runtest ": main \"yukarin\" strlen . ; main" "7"
-runtest "dump-type String.lent" "StringU -- StringU String"
-runtest ": main 7 new-cstr [ \"yukarin\" strcpy ] keep .s ; main" "yukarin"
-runtest ": main \"yuka\" string \"maki\" string concat .ss ; main" "yukamaki"
-runtest ": main \"kiri\" \"kizu\" \"aka\" \"maki\" \"yuka\" string appendc appendc appendc appendc ; main .ss" "yukamakiakakizukiri"
-runtest ": main \"yuka\" \"kiri\" streq? .b \"yuka\" \"yuka\" streq? .b ; main" "01"
+# runtest ": main \"yukarin\" strlen . ; main" "7"
+# runtest "dump-type String.lent" "StringU -- StringU String"
+# runtest ": main 7 new-cstr [ \"yukarin\" strcpy ] keep .s ; main" "yukarin"
+# runtest ": main \"yuka\" string \"maki\" string concat .ss ; main" "yukamaki"
+# runtest ": main \"kiri\" \"kizu\" \"aka\" \"maki\" \"yuka\" string appendc appendc appendc appendc ; main .ss" "yukamakiakakizukiri"
+# runtest ": main \"yuka\" \"kiri\" streq? .b \"yuka\" \"yuka\" streq? .b ; main" "01"
 
 # file
 # filetest "examples/fileio.hedon" "yukayuka"
@@ -154,9 +154,9 @@ runtest ": main \"yuka\" \"kiri\" streq? .b \"yuka\" \"yuka\" streq? .b ; main" 
 # record
 
 echo "<<Language Test>>"
-langtest "tests/basic.hedon"
-langtest "tests/controlflow.hedon"
-langtest "tests/vocab.hedon"
+# langtest "tests/basic.hedon"
+# langtest "tests/controlflow.hedon"
+# langtest "tests/vocab.hedon"
 # langtest "tests/linear.hedon"
 # langtest "tests/macro.hedon"
 # langtest "tests/cffi.hedon"

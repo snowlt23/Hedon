@@ -1,16 +1,20 @@
-: 2dup.eff
-  a dup eff.drop b dup eff.drop dup eff.push swap dup eff.push swap eff.push eff.push
-;
-: 2dup
-  swap dup [ swap dup ] dip swap
-; eff.attach 2dup.eff
+rem : 2dup.eff
+rem   a dup eff.drop b dup eff.drop dup eff.push swap dup eff.push swap eff.push eff.push
+rem ;
+rem : 2dup
+rem   swap dup [ swap dup ] dip swap
+rem ; eff.attach 2dup.eff
 : 3dup.eff
   a dup eff.drop b dup eff.drop c dup eff.drop dup eff.push [ dup eff.push ] dip [ dup eff.push ] 2dip eff.push eff.push eff.push
 ;
-: 3dup
-  [ dup ] 2keep
-; eff.attach 2dup.eff
+rem : 3dup
+rem   [ dup ] 2keep
+rem ; eff.attach 2dup.eff
 : bi@ dup compile [ swap ] postcompile compile [ swap ] postcompile ; immediate
+
+: 2dup
+  swap dup [ swap dup ] dip swap
+;
 
 : compose combine ; immediate
 

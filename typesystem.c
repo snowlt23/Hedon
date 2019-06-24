@@ -58,17 +58,27 @@ void global_push_type(Type* l) {
   else imm_push_type(l);
 }
 
-bool imm_pop_type(Type* l) {
+bool imm_pop_type_result(Type* l, char** err) {
+  *err = NULL;
   if (stacklen(imm_typeout) == 0) {
     // if stack is empty at global state
-    error("stack is empty, but expected %s value", typename(l));
+    *err = format("stack is empty, but expected %s value", typename(l));
+    return false;
   }
   Type* sl = pop(imm_typeout);
-  if (!eqtype(l, sl)) error("unmatch %s type to %s", typename(sl), typename(l));
+  if (!eqtype(l, sl)) *err = format("unmatch %s type to %s", typename(sl), typename(l));
   return false;
 }
 
-bool global_pop_type(Type* l) {
+bool imm_pop_type(Type* l) {
+  char* err;
+  bool b = imm_pop_type_result(l, &err);
+  if (err != NULL) error("%s", err);
+  return b;
+}
+
+bool global_pop_type_result(Type* l, char** err) {
+  *err = NULL;
   if (state) {
     if (stacklen(comp_typeout) == 0) {
       // pop_type for word argument.
@@ -77,31 +87,49 @@ bool global_pop_type(Type* l) {
     }
     // consume current stack type.
     Type* sl = pop(comp_typeout);
-    if (!eqtype(l, sl)) error("unmatch %s type to %s", typename(sl), typename(l));
+    if (!eqtype(l, sl)) {
+      *err = format("unmatch %s type to %s", typename(sl), typename(l));
+      return false;
+    }
     if (is_polytype(l)) replace_typeref(l, sl);
     if (is_polytype(sl)) replace_typeref(sl, l);
     return false;
   } else {
-    return imm_pop_type(l);
+    return imm_pop_type_result(l, err);
   }
 }
 
-void apply_in(Def* def, Stack* in) {
+bool global_pop_type(Type* l) {
+  char* err;
+  bool b = global_pop_type_result(l, &err);
+  if (err != NULL) error("%s", err);
+  return b;
+}
+
+void apply_in_result(Def* def, Stack* in, char** err) {
+  *err = NULL;
   for (size_t i=0; i<stacklen(in); i++) {
     Type* t = get(in, i);
     global_pop_type(t);
     Def* eff = search_def(t->name);
-    if (eff == NULL) error("undefined %s word in apply-freeze", t->name);
+    if (eff == NULL) {
+      *err = format("undefined %s word in apply-freeze", t->name);
+      return;
+    }
     if (!codestate && state) push(def->effects, new_eff(eff, EFF_IN));
   }
 }
 
-void apply_out(Def* def, Stack* out) {
+void apply_out_result(Def* def, Stack* out, char** err) {
+  *err = NULL;
   for (size_t i=0; i<stacklen(out); i++) {
     Type* t = get(out, i);
     global_push_type(t);
     Def* eff = search_def(t->name);
-    if (eff == NULL) error("undefined %s word in apply-freeze", t->name);
+    if (eff == NULL) {
+      *err = format("undefined %s word in apply-freeze", t->name);
+      return;
+    }
     if (!codestate && state) push(def->effects, new_eff(eff, EFF_OUT));
   }
 }
@@ -120,13 +148,14 @@ bool eq_in(Stack* a, Stack* in) {
 // for Definition
 //
 
-void apply_effects(Def* def) {
+void apply_effects_result(Def* def, char** err) {
+  *err = NULL;
   Def* wdef = last_def();
   if (!def->polymorphic) {
     assert(def->freezein != NULL);
     assert(def->freezeout != NULL);
-    apply_in(wdef, def->freezein);
-    apply_out(wdef, def->freezeout);
+    apply_in_result(wdef, def->freezein, err);
+    apply_out_result(wdef, def->freezeout, err);
     return;
   }
 
@@ -140,9 +169,12 @@ void apply_effects(Def* def) {
     // imm_eval_def(eff->def); // FIXME:
     if (eff->kind == EFF_IMM) continue;
     global_pop_type(typet);
+    // global_pop_type_result(typet, err);
+    // if (err != NULL) return;
     Type* t = (Type*)pop_x();
-    if (eff->kind == EFF_IN) global_pop_type(t);
+    if (eff->kind == EFF_IN) global_pop_type_result(t, err);
     else global_push_type(t);
+    if (*err != NULL) return;
   }
 
   if (!codestate) {
@@ -151,6 +183,12 @@ void apply_effects(Def* def) {
       push(wdef->effects, eff);
     }
   }
+}
+
+void apply_effects(Def* def) {
+  char* err;
+  apply_effects_result(def, &err);
+  if (err != NULL) error("%s", err);
 }
 
 void imm_apply_effects(Def* def) {
@@ -201,9 +239,17 @@ void add_cstr_effect() {
 Def* solve_trait_word(Stack* defs) {
   for (size_t i=0; i<stacklen(defs); i++) {
     Def* def = get(defs, i);
-    if (def->polymorphic) error("%s impl is polymorphic", def->name);
-    assert(def->freezein != NULL);
-    if (eq_in(comp_typeout, def->freezein)) return def;
+    // if (def->polymorphic) error("%s impl is polymorphic", def->name);
+    if (def->polymorphic) {
+      char* err;
+      spill_typestack();
+      apply_effects_result(def, &err);
+      restore_typestack();
+      if (err == NULL) return def;
+    } else {
+      assert(def->freezein != NULL);
+      if (eq_in(comp_typeout, def->freezein)) return def;
+    }
   }
   return NULL;
 }

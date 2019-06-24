@@ -91,14 +91,23 @@ void word_paramtype() {
   // write_stack_increment(0);
 }
 
+void word_uniontype_in() {
+  char* name = (char*)pop_x();
+  int id = (int)pop_x();
+  push_x((size_t)init_uniontype_ref(name, id));
+}
+
 void word_uniontype() {
+  write_x((size_t)newtypeid());
   char* name = last_def()->name;
-  size_t id = newtypeid();
-  write_x((size_t)init_uniontype(name, id));
+  write_x((size_t)name);
+  write_call_builtin(word_uniontype_in);
+  write_stack_increment(-8);
 }
 
 void word_is() {
   Type* ut = (Type*)pop_x();
+  ut = type_origin(ut);
   if (ut->types == NULL) error("%s isn't uniontype", ut->name);
   Type* t = (Type*)pop_x();
   push(ut->types, t);
