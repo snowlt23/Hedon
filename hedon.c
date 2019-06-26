@@ -231,7 +231,7 @@ void load_core() {
   eval_file_path("cffi.hedon");
   eval_file_path("macro.hedon");
   eval_file_path("string.hedon");
-  // eval_file_path("fileio.hedon");
+  eval_file_path("fileio.hedon");
   // eval_file_path("unittest.hedon");
   // eval_file_path("record.hedon");
 }

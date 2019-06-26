@@ -1,9 +1,8 @@
 : main
   "test.txt" w/o open-file drop
-  lent "yukayuka" write-string drop
+    "yukayuka" write-cstring drop
   "test.txt" r/o open-file drop
-  lent 9 c.malloc [ 8 read ] keep
-  to-cstr .s
+    9 alloc cast> Cstr [ 8 read-cstring ] keep .s
   drop
 ;
 main

@@ -158,7 +158,9 @@ runtest ": main \"kiri\" \"kizu\" \"aka\" \"maki\" \"yuka\" string append-cstr a
 runtest ": main \"yuka\" \"kiri\" streq? .b \"yuka\" \"yuka\" streq? .b ; main" "01"
 
 # file
-# filetest "examples/fileio.hedon" "yukayuka"
+rm test.txt
+touch test.txt
+filetest "examples/fileio.hedon" "yukayuka"
 
 # record
 

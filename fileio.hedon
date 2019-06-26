@@ -1,6 +1,8 @@
 : File newtype ;
 : FileMode newtype ;
 
+File Fixnum is
+
 : open-file 0 2 syscall3 dup 0 < ; ![ Cstr FileMode -- File Int ]
 : close-file 3 syscall1 Fixnum.drop ; ![ File -- ]
 : File.drop close-file ; impl drop
@@ -14,5 +16,5 @@
 : read [ File.dup.unsafe ] 2dip read.unsafe ;
 : write [ File.dup.unsafe ] 2dip write.unsafe ;
 
-: write-string dup strlen [ cstr-to-pointer ] dip write ; ![ File Cstr -- File ]
-: read-string read.unsafe ; ![ File Cstr Int -- File ]
+: write-cstring dup strlen [ cast> Pointer ] dip write ; ![ File Cstr -- File ]
+: read-cstring read.unsafe ; ![ File Cstr Int -- File ]
