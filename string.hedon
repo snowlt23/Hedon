@@ -1,17 +1,16 @@
 : strlen
   0 swap [ dup c@ 0 eq not ] [ swap 1+ swap 1 s+ ] while drop
 ;
-
 rem d s
 : chrcpy u8@ swap u8! ;
 rem d s n
+: memcpy 0 swap [ drop ] do ;
 : memcpy 0 swap [ [ 2dup chrcpy [ 1 p+ ] bi@ ] dip ] do drop drop ;
 rem d s n
-: strcpyn [ [ cstr-to-pointer ] bi@ ] dip memcpy ;
+: strcpyn [ [ cast> Pointer ] bi@ ] dip memcpy ;
 : strcpy dup strlen 1+ strcpyn ;
 : new-cstr 1+ c.malloc pointer-to-cstr ;
 
-rem ( s1 s2 -- b )
 : eq-len? 2dup [ strlen ] bi@ eq ;
 : strend? c@ 0 eq ;
 : streq-char? [ c@ ] bi@ eq ;
@@ -20,50 +19,44 @@ rem ( s1 s2 -- b )
   drop drop true
 ;
 
-: StringU newtype ;
 : String newtype ;
-lentable String.lent StringU String
-: pointer-to-string ; ![ Pointer -- String ]
-: string-to-pointer ; ![ String -- Pointer ]
-: String.head-size cell cell + ;
-: String.cap ; ![ String -- Pointer ]
-: String.len cell p+ ; ![ String -- Pointer ]
-: String.data cell cell + p+ ; ![ String -- Cstr ]
-: String.dup Int.dup ; ![ String -- String String ] impl dup
-: String.drop Fixnum.drop ; ![ String -- ] impl drop
-: String.swap Int.swap ; ![ String String -- String String ] impl swap
+String Fixnum is
+: str+ [ dup cast> Pointer ] dip p+ ; ![ String Int -- String Pointer ]
+: String.header-size cell cell + ;
+: String.capacity 0 str+ ;
+: String.len cell str+ ;
+: String.data String.header-size str+ cast> Cstr ;
 
-: length String.len @ ;
-: String.need-extend [ length + ] keep String.cap @ < not ;
-: String.2cap dup String.cap @ dup + swap String.cap ! ;
-: String.extend-cap [ 2dup String.need-extend ] [ dup String.2cap ] while drop drop ;
-: String.realloc [ string-to-pointer ] keep String.cap @ String.head-size + 1 + realloc pointer-to-string ;
-: String.extend [ String.extend-cap ] keep String.realloc ;
-: String.extend-if-need 2dup String.need-extend [ String.extend ] [ swap drop ] if ;
+: length>> String.len @ ;
+: >>length String.len swap [ ! ] dip ;
+: capacity>> String.capacity @ ;
+: >>capacity String.capacity swap [ ! ] dip ;
 
-: alloc-string String.head-size + 1 + alloc pointer-to-string ;
-: new-string dup alloc-string [ String.cap ! ] keep [ String.len 0 swap ! ] keep ;
-: length-cstr [ strlen ] keep ;
-: string length-cstr dup strlen new-string [ String.data swap strcpy ] keep [ String.len ! ] keep ;
+: alloc-string String.header-size + 1 + alloc cast> String ;
+: string.realloc capacity>> String.header-size + 1 + [ cast> Pointer ] dip realloc cast> String ;
+: new-string dup alloc-string >>capacity 0 swap >>length ;
+
+: string.need-extend length>> swap [ + ] dip capacity>> swap [ < not ] dip swap ;
+: string.2capacity! capacity>> dup + swap >>capacity ;
+: string.extend-capacity [ [ dup ] dip string.need-extend ] [ string.2capacity! ] while [ drop ] dip ;
+: string.do-extend string.extend-capacity string.realloc ;
+: string.extend-if-need [ dup ] dip string.need-extend [ string.do-extend ] [ swap drop ] if ;
+
+: string dup strlen dup new-string >>length String.data swap [ swap strcpy ] dip ;
 : .ss String.data .s ;
 
-: copy-and-seek dup strlen [ [ strcpy ] 2keep drop ] dip s+ ;
-: 2length [ length ] bi@ + ;
-: alloc-2string 2length new-string ;
-: 2copy-string swap copy-and-seek swap copy-and-seek drop ;
-: concat swap 2dup alloc-2string [ String.data [ [ String.data ] bi@ ] dip 2copy-string ] keep ;
+: copy&seek swap dup strlen [ [ strcpy ] 2keep drop ] dip s+ ;
+: 2length [ length>> ] dip length>> [ swap ] dip + ;
+: 2string.data [ String.data ] dip String.data [ swap ] dip ;
+: 2strcpy-string String.data swap [ copy&seek copy&seek drop ] dip ;
+: new-2string 2length dup new-string >>length ;
+: concat swap new-2string [ 2string.data ] dip 2strcpy-string ;
+: 2print swap .ss swap .ss ;
+: 2length-print swap length>> . swap length>> . ;
 
-: String.tail [ String.data ] [ length ] bi s+ ;
-: string@ String.data swap s+ c@ ;
-: add-length String.len +! ;
-: appendc [ length-cstr ] dip [ dup strlen ] dip String.extend-if-need [ String.tail swap strcpy ] keep [ add-length ] keep ;
-: push-char 1 swap String.extend-if-need [ String.tail c! ] keep [ 1 swap add-length ] keep ;
-
-var nullstr-var Pointer
-: init-nullstr here nullstr-var p! 0 here pointer-to-cstr c! 1 allot ;
-: nullchar 0 ;
-: nullstr nullstr-var p@ pointer-to-cstr ;
-init-nullstr
-
-rem dump-type String.need-extend cr
-rem dump-type String.extend-if-need cr
+: String.tail String.data swap length>> swap [ s+ ] dip swap ;
+: string@ String.data swap [ swap s+ c@ ] dip swap ;
+: add-length String.len swap [ +! ] dip ;
+: copy-cstr-to-string String.tail swap [ swap strcpy ] dip ;
+: string.extend-with-cstr [ strlen ] dip add-length ;
+: append-cstr [ dup dup strlen ] dip string.extend-if-need copy-cstr-to-string string.extend-with-cstr ;

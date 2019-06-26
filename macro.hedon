@@ -20,12 +20,14 @@ rem ; eff.attach 2dup.eff
 
 rem s e q --
 : do
+  Int eff.drop
   [ Fixnum.spill Fixnum.drop ] postcompile
   [ dup Fixnum.restore Fixnum.spill < ] postquot
   swap
   [ 1+ ] postquot combine
   [ while ] postcompile
   [ Fixnum.restore Fixnum.drop Fixnum.drop ] postcompile
+  Int eff.drop Int eff.drop
 ; immediate
 
 rem n "name"

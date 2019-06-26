@@ -62,6 +62,12 @@ rem : Fixnum.drop [ 0x48 0x83 0xc3 0x08 ] X ; ![ Fixnum ] impl drop
 : Fixnum.swap.eff Fixnum dup eff.drop Fixnum dup eff.drop Type.swap eff.push eff.push ;
 : Fixnum.swap >rax >rcx rax> rcx> ; eff.attach Fixnum.swap.eff impl swap
 
+: Type.rot >rax >rcx >rdx rax> rdx> rcx> ; ![ Type Type Type -- Type Type Type ]
+: rot.eff a dup eff.drop b dup eff.drop c dup eff.drop Type.rot eff.push eff.push eff.push ;
+: rot trait ; eff.attach rot.eff
+: Fixnum.rot.eff Fixnum dup eff.drop Fixnum dup eff.drop Fixnum dup eff.drop Type.rot eff.push eff.push eff.push ;
+: Fixnum.rot  >rax >rcx >rdx rax> rdx> rcx> ; eff.attach Fixnum.rot.eff impl rot
+
 : + >rcx >rax [ 0x48 0x01 0xc8 ] X rax> ;
 : - >rcx >rax [ 0x48 0x29 0xc8 ] X rax> ;
 : * >rcx >rax [ 0x48 0xf7 0xe1 ] X rax> ;

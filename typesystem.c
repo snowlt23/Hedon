@@ -89,6 +89,7 @@ bool global_pop_type_result(Type* l, char** err) {
     Type* sl = pop(comp_typeout);
     if (!eqtype(l, sl)) {
       *err = format("unmatch %s type to %s", typename(sl), typename(l));
+      // debug("%s:%d %s:%d %d", l->name, l->kind, sl->name, sl->kind, eqtype(l, sl));
       return false;
     }
     if (is_polytype(l)) replace_typeref(l, sl);

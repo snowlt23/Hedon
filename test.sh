@@ -1,17 +1,17 @@
 #!/bin/sh
 
 runtest() {
-  OUT=$(echo "$1" | ./hedon)
   echo "[TEST] $1"
+  OUT=$(echo "$1" | ./hedon)
   if [ "$OUT" != "$2" ] ; then
     echo "[ERROR] $1    expect $2, but got $OUT"
     exit 1
   fi
 }
 exittest() {
+  echo "[TEST] $1"
   OUT=$(echo "$1" | ./hedon)
   RET=$?
-  echo "[TEST] $1"
   if [ "$RET" != "$2" ] ; then
     echo "[ERROR] $1    expect $2, but got $RET"
     exit 1
@@ -19,8 +19,8 @@ exittest() {
 }
 
 filetest() {
-  OUT=$(./hedon -l $1 -c)
   echo "[TEST] $1"
+  OUT=$(./hedon -l $1 -c)
   if [ "$OUT" != "$2" ] ; then
     echo "[ERROR] $1    expect $2, but got $OUT"
     exit 1
@@ -28,8 +28,8 @@ filetest() {
 }
 
 errortest() {
-  ERR=$(echo "$1" | ./hedon 2>&1)
   echo "[TEST] $1"
+  ERR=$(echo "$1" | ./hedon 2>&1)
   if [ "$ERR" != "$2" ] ; then
     echo "[ERROR] $1    expect \"$2\" error, but got \"$ERR\""
     exit 1
@@ -37,8 +37,8 @@ errortest() {
 }
 
 error_filetest() {
-  ERR=$(./hedon -l $1 -c 2>&1)
   echo "[TEST] $1"
+  ERR=$(./hedon -l $1 -c 2>&1)
   if [ "$ERR" != "$2" ] ; then
     echo "[ERROR] $1    expect \"$2\" error, but got \"$ERR\""
     exit 1
@@ -75,6 +75,7 @@ runtest ": main 1 dup dup + + ; main ." "3"
 runtest ": 2dup dup dup ; dump-type 2dup : main 1 2dup + + ; main ." "a -- a a a3"
 runtest ": 2dup dup dup ; : t2dup Int dup dup ; : main 1 2dup + + ; main ." "3"
 runtest ": 2dup dup dup ; : 3dup dup 2dup ; : main 1 3dup + + + ; main ." "4"
+runtest ": main 1 2 3 rot . . . ; main" "213"
 runtest "1 2 3 Int.pick3 ." "1"
 runtest ": main 0 9 dp Int.pick3 drop p@ ! dp p@ @ . ; main" "9"
 runtest "9 dp p@ ! dp p@ @ ." "9"
@@ -124,13 +125,14 @@ runtest ": main 4 5 2dup . . . . ; main" "5454"
 runtest ": main swap Int.drop Cstr.drop ; dump-type main" "Int Cstr -- <>"
 runtest ": main 2dup Int.drop Cstr.drop ; dump-type main" "Cstr Int -- Cstr Int"
 runtest ": main 5 0 [ 2dup > ] [ dup . 1+ ] while ; main" "01234"
+runtest ": main 5 swap [ ] do ; dump-type main" "Int -- <>"
 runtest ": main 0 5 [ dup . ] do ; main" "01234"
 runtest "array K Pointer 5 , 4 , 5 , : main 0 K array@ . 1 K array@ . 2 K array@ . ; main" "545"
 # runtest ": run-test \"aaa\" 1 1 eq test ; run-test 9 ." "[OK] aaa
 # 9"
 # runtest ": run-test \"0eq1\" 0 1 eq test ; run-test 9 ." "[ERROR] 0eq1"
 runtest "dump-type to-pointer" "Fixnum -- Pointer"
-# runtest ": 555p 555 to-pointer ; : main 555p to-int . ; dump-type 555p main" "<> -- Pointer555" # cast
+runtest ": 555p 555 to-pointer ; : main 555p to-int . ; dump-type 555p main" "<> -- Pointer555" # cast
 
 # vocab
 error_filetest "examples/vocab.hedon" "error in main: undefined helloworld word at helloworld"
@@ -141,12 +143,19 @@ runtest ": main 1 2 test.call2 c.call2 . ; main" "-1"
 runtest ": main 1 2 3 4 5 6 test.call6 c.call6 . ; main" "-19"
 
 # string
-# runtest ": main \"yukarin\" strlen . ; main" "7"
-# runtest "dump-type String.lent" "StringU -- StringU String"
-# runtest ": main 7 new-cstr [ \"yukarin\" strcpy ] keep .s ; main" "yukarin"
-# runtest ": main \"yuka\" string \"maki\" string concat .ss ; main" "yukamaki"
-# runtest ": main \"kiri\" \"kizu\" \"aka\" \"maki\" \"yuka\" string appendc appendc appendc appendc ; main .ss" "yukamakiakakizukiri"
-# runtest ": main \"yuka\" \"kiri\" streq? .b \"yuka\" \"yuka\" streq? .b ; main" "01"
+runtest ": main \"yukarin\" strlen . ; main" "7"
+runtest ": main 7 new-cstr [ \"yukarin\" strcpy ] keep .s ; main" "yukarin"
+runtest ": main \"yuka\" string .ss ; main" "yuka"
+runtest ": main \"yuka\" string length>> . ; main" "4"
+runtest ": main \"yuka\" string \"maki\" string length>> . ; main" "4"
+runtest ": main \"seki\" string \"ro\" strlen . length>> . ; main" "24"
+runtest ": main \"seki\" string \"ro\" string 2print ; main" "sekiro"
+runtest ": main \"seki\" string \"ro\" string 2length-print ; main" "42"
+runtest ": main \"yuka\" string \"maki\" string 2print ; main" "yukamaki"
+runtest ": main \"yuka\" string \"maki\" string 2length . ; main" "8"
+runtest ": main \"yuka\" string \"maki\" string concat .ss ; main" "yukamaki"
+runtest ": main \"kiri\" \"kizu\" \"aka\" \"maki\" \"yuka\" string append-cstr append-cstr append-cstr append-cstr .ss ; main" "yukamakiakakizukiri"
+runtest ": main \"yuka\" \"kiri\" streq? .b \"yuka\" \"yuka\" streq? .b ; main" "01"
 
 # file
 # filetest "examples/fileio.hedon" "yukayuka"

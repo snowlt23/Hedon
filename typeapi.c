@@ -87,6 +87,7 @@ bool eqtype(Type* a, Type* b) {
     }
   }
   if (b->kind == TYPE_UNION) {
+    debug("%s %s", a->name, b->name);
     for (size_t i=0; i<stacklen(b->types); i++) {
       if (eqtype(a, get(b->types, i))) return true;
     }
