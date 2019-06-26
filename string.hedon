@@ -4,7 +4,6 @@
 rem d s
 : chrcpy u8@ swap u8! ;
 rem d s n
-: memcpy 0 swap [ drop ] do ;
 : memcpy 0 swap [ [ 2dup chrcpy [ 1 p+ ] bi@ ] dip ] do drop drop ;
 rem d s n
 : strcpyn [ [ cast> Pointer ] bi@ ] dip memcpy ;
