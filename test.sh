@@ -162,6 +162,9 @@ rm test.txt
 touch test.txt
 filetest "examples/fileio.hedon" "yukayuka"
 
+# macro by using string
+filetest "examples/word-by-string.hedon" "invoke Int.origin"
+
 # record
 
 echo "<<Language Test>>"

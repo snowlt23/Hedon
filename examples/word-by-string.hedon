@@ -1,0 +1,13 @@
+: generate-field-name
+  swap string "." swap append-cstr append-cstr
+;
+
+: generate-field
+  parse-name parse-name generate-field-name string->cstr <word>
+    [ "invoke Int.origin" .s ] postquot >>code
+    <eff> >>eff
+  >vocab
+;
+
+generate-field Int origin
+Int.origin

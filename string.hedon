@@ -25,6 +25,7 @@ String Fixnum is
 : String.capacity 0 str+ ;
 : String.len cell str+ ;
 : String.data String.header-size str+ cast> Cstr ;
+: string->cstr String.data ;
 
 : length>> String.len @ ;
 : >>length String.len swap [ ! ] dip ;
